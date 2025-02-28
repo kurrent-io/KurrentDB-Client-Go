@@ -7,14 +7,14 @@ import (
 	"io"
 	"strings"
 
-	"github.com/EventStore/EventStore-Client-Go/v4/kurrent"
+	"github.com/EventStore/EventStore-Client-Go/v1/kurrent"
 )
 
-func ReadFromStream(db *kurrent.Client) {
+func ReadFromStream(db *kurrentdb.Client) {
 	// region read-from-stream
-	options := kurrent.ReadStreamOptions{
-		From:      kurrent.Start{},
-		Direction: kurrent.Forwards,
+	options := kurrentdb.ReadStreamOptions{
+		From:      kurrentdb.Start{},
+		Direction: kurrentdb.Forwards,
 	}
 	stream, err := db.ReadStream(context.Background(), "some-stream", options, 100)
 
@@ -41,10 +41,10 @@ func ReadFromStream(db *kurrent.Client) {
 	// endregion iterate-stream
 }
 
-func ReadFromStreamPosition(db *kurrent.Client) {
+func ReadFromStreamPosition(db *kurrentdb.Client) {
 	// region read-from-stream-position
-	ropts := kurrent.ReadStreamOptions{
-		From: kurrent.Revision(10),
+	ropts := kurrentdb.ReadStreamOptions{
+		From: kurrentdb.Revision(10),
 	}
 
 	stream, err := db.ReadStream(context.Background(), "some-stream", ropts, 20)
@@ -72,11 +72,11 @@ func ReadFromStreamPosition(db *kurrent.Client) {
 	// endregion iterate-stream
 }
 
-func ReadStreamOverridingUserCredentials(db *kurrent.Client) {
+func ReadStreamOverridingUserCredentials(db *kurrentdb.Client) {
 	// region overriding-user-credentials
-	options := kurrent.ReadStreamOptions{
-		From: kurrent.Start{},
-		Authenticated: &kurrent.Credentials{
+	options := kurrentdb.ReadStreamOptions{
+		From: kurrentdb.Start{},
+		Authenticated: &kurrentdb.Credentials{
 			Login:    "admin",
 			Password: "changeit",
 		},
@@ -91,10 +91,10 @@ func ReadStreamOverridingUserCredentials(db *kurrent.Client) {
 	stream.Close()
 }
 
-func ReadFromStreamPositionCheck(db *kurrent.Client) {
+func ReadFromStreamPositionCheck(db *kurrentdb.Client) {
 	// region checking-for-stream-presence
-	ropts := kurrent.ReadStreamOptions{
-		From: kurrent.Revision(10),
+	ropts := kurrentdb.ReadStreamOptions{
+		From: kurrentdb.Revision(10),
 	}
 
 	stream, err := db.ReadStream(context.Background(), "some-stream", ropts, 100)
@@ -108,8 +108,8 @@ func ReadFromStreamPositionCheck(db *kurrent.Client) {
 	for {
 		event, err := stream.Recv()
 
-		if err, ok := kurrent.FromError(err); !ok {
-			if err.Code() == kurrent.ErrorCodeResourceNotFound {
+		if err, ok := kurrentdb.FromError(err); !ok {
+			if err.Code() == kurrentdb.ErrorCodeResourceNotFound {
 				fmt.Print("Stream not found")
 			} else if errors.Is(err, io.EOF) {
 				break
@@ -123,11 +123,11 @@ func ReadFromStreamPositionCheck(db *kurrent.Client) {
 	// endregion checking-for-stream-presence
 }
 
-func ReadStreamBackwards(db *kurrent.Client) {
+func ReadStreamBackwards(db *kurrentdb.Client) {
 	// region reading-backwards
-	ropts := kurrent.ReadStreamOptions{
-		Direction: kurrent.Backwards,
-		From:      kurrent.End{},
+	ropts := kurrentdb.ReadStreamOptions{
+		Direction: kurrentdb.Backwards,
+		From:      kurrentdb.End{},
 	}
 
 	stream, err := db.ReadStream(context.Background(), "some-stream", ropts, 10)
@@ -154,11 +154,11 @@ func ReadStreamBackwards(db *kurrent.Client) {
 	// endregion reading-backwards
 }
 
-func ReadFromAllStream(db *kurrent.Client) {
+func ReadFromAllStream(db *kurrentdb.Client) {
 	// region read-from-all-stream
-	options := kurrent.ReadAllOptions{
-		From:      kurrent.Start{},
-		Direction: kurrent.Forwards,
+	options := kurrentdb.ReadAllOptions{
+		From:      kurrentdb.Start{},
+		Direction: kurrentdb.Forwards,
 	}
 	stream, err := db.ReadAll(context.Background(), options, 100)
 
@@ -185,9 +185,9 @@ func ReadFromAllStream(db *kurrent.Client) {
 	// endregion read-from-all-stream-iterate
 }
 
-func IgnoreSystemEvents(db *kurrent.Client) {
+func IgnoreSystemEvents(db *kurrentdb.Client) {
 	// region ignore-system-events
-	stream, err := db.ReadAll(context.Background(), kurrent.ReadAllOptions{}, 100)
+	stream, err := db.ReadAll(context.Background(), kurrentdb.ReadAllOptions{}, 100)
 
 	if err != nil {
 		panic(err)
@@ -217,11 +217,11 @@ func IgnoreSystemEvents(db *kurrent.Client) {
 	// endregion ignore-system-events
 }
 
-func ReadFromAllBackwards(db *kurrent.Client) {
+func ReadFromAllBackwards(db *kurrentdb.Client) {
 	// region read-from-all-stream-backwards
-	ropts := kurrent.ReadAllOptions{
-		Direction: kurrent.Backwards,
-		From:      kurrent.End{},
+	ropts := kurrentdb.ReadAllOptions{
+		Direction: kurrentdb.Backwards,
+		From:      kurrentdb.End{},
 	}
 
 	stream, err := db.ReadAll(context.Background(), ropts, 100)
@@ -249,9 +249,9 @@ func ReadFromAllBackwards(db *kurrent.Client) {
 	// endregion read-from-all-stream-backwards-iterate
 }
 
-func ReadFromStreamResolvingLinkToS(db *kurrent.Client) {
+func ReadFromStreamResolvingLinkToS(db *kurrentdb.Client) {
 	// region read-from-all-stream-resolving-link-Tos
-	ropts := kurrent.ReadAllOptions{
+	ropts := kurrentdb.ReadAllOptions{
 		ResolveLinkTos: true,
 	}
 
@@ -265,11 +265,11 @@ func ReadFromStreamResolvingLinkToS(db *kurrent.Client) {
 	defer stream.Close()
 }
 
-func ReadAllOverridingUserCredentials(db *kurrent.Client) {
+func ReadAllOverridingUserCredentials(db *kurrentdb.Client) {
 	// region read-all-overriding-user-credentials
-	ropts := kurrent.ReadAllOptions{
-		From: kurrent.Start{},
-		Authenticated: &kurrent.Credentials{
+	ropts := kurrentdb.ReadAllOptions{
+		From: kurrentdb.Start{},
+		Authenticated: &kurrentdb.Credentials{
 			Login:    "admin",
 			Password: "changeit",
 		},

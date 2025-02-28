@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/EventStore/EventStore-Client-Go/v4/kurrent"
+	"github.com/EventStore/EventStore-Client-Go/v1/kurrent"
 )
 
-func SubscribeToStream(db *kurrent.Client) {
-	options := kurrent.SubscribeToStreamOptions{}
+func SubscribeToStream(db *kurrentdb.Client) {
+	options := kurrentdb.SubscribeToStreamOptions{}
 	// region subscribe-to-stream
-	stream, err := db.SubscribeToStream(context.Background(), "some-stream", kurrent.SubscribeToStreamOptions{})
+	stream, err := db.SubscribeToStream(context.Background(), "some-stream", kurrentdb.SubscribeToStreamOptions{})
 
 	if err != nil {
 		panic(err)
@@ -32,22 +32,22 @@ func SubscribeToStream(db *kurrent.Client) {
 	// endregion subscribe-to-stream
 
 	// region subscribe-to-stream-from-position
-	db.SubscribeToStream(context.Background(), "some-stream", kurrent.SubscribeToStreamOptions{
-		From: kurrent.Revision(20),
+	db.SubscribeToStream(context.Background(), "some-stream", kurrentdb.SubscribeToStreamOptions{
+		From: kurrentdb.Revision(20),
 	})
 	// endregion subscribe-to-stream-from-position
 
 	// region subscribe-to-stream-live
-	options = kurrent.SubscribeToStreamOptions{
-		From: kurrent.End{},
+	options = kurrentdb.SubscribeToStreamOptions{
+		From: kurrentdb.End{},
 	}
 
 	db.SubscribeToStream(context.Background(), "some-stream", options)
 	// endregion subscribe-to-stream-live
 
 	// region subscribe-to-stream-resolving-linktos
-	options = kurrent.SubscribeToStreamOptions{
-		From:           kurrent.Start{},
+	options = kurrentdb.SubscribeToStreamOptions{
+		From:           kurrentdb.Start{},
 		ResolveLinkTos: true,
 	}
 
@@ -55,8 +55,8 @@ func SubscribeToStream(db *kurrent.Client) {
 	// endregion subscribe-to-stream-resolving-linktos
 
 	// region subscribe-to-stream-subscription-dropped
-	options = kurrent.SubscribeToStreamOptions{
-		From: kurrent.Start{},
+	options = kurrentdb.SubscribeToStreamOptions{
+		From: kurrentdb.Start{},
 	}
 
 	for {
@@ -78,17 +78,17 @@ func SubscribeToStream(db *kurrent.Client) {
 
 			if event.EventAppeared != nil {
 				// handles the event...
-				options.From = kurrent.Revision(event.EventAppeared.OriginalEvent().EventNumber)
+				options.From = kurrentdb.Revision(event.EventAppeared.OriginalEvent().EventNumber)
 			}
 		}
 	}
 	// endregion subscribe-to-stream-subscription-dropped
 }
 
-func SubscribeToAll(db *kurrent.Client) {
-	options := kurrent.SubscribeToAllOptions{}
+func SubscribeToAll(db *kurrentdb.Client) {
+	options := kurrentdb.SubscribeToAllOptions{}
 	// region subscribe-to-all
-	stream, err := db.SubscribeToAll(context.Background(), kurrent.SubscribeToAllOptions{})
+	stream, err := db.SubscribeToAll(context.Background(), kurrentdb.SubscribeToAllOptions{})
 
 	if err != nil {
 		panic(err)
@@ -110,8 +110,8 @@ func SubscribeToAll(db *kurrent.Client) {
 	// endregion subscribe-to-all
 
 	// region subscribe-to-all-from-position
-	db.SubscribeToAll(context.Background(), kurrent.SubscribeToAllOptions{
-		From: kurrent.Position{
+	db.SubscribeToAll(context.Background(), kurrentdb.SubscribeToAllOptions{
+		From: kurrentdb.Position{
 			Commit:  1_056,
 			Prepare: 1_056,
 		},
@@ -119,14 +119,14 @@ func SubscribeToAll(db *kurrent.Client) {
 	// endregion subscribe-to-all-from-position
 
 	// region subscribe-to-all-live
-	db.SubscribeToAll(context.Background(), kurrent.SubscribeToAllOptions{
-		From: kurrent.End{},
+	db.SubscribeToAll(context.Background(), kurrentdb.SubscribeToAllOptions{
+		From: kurrentdb.End{},
 	})
 	// endregion subscribe-to-all-live
 
 	// region subscribe-to-all-subscription-dropped
-	options = kurrent.SubscribeToAllOptions{
-		From: kurrent.Start{},
+	options = kurrentdb.SubscribeToAllOptions{
+		From: kurrentdb.Start{},
 	}
 
 	for {
@@ -154,29 +154,29 @@ func SubscribeToAll(db *kurrent.Client) {
 	// endregion subscribe-to-all-subscription-dropped
 }
 
-func SubscribeToFiltered(db *kurrent.Client) {
+func SubscribeToFiltered(db *kurrentdb.Client) {
 	// region stream-prefix-filtered-subscription
-	db.SubscribeToAll(context.Background(), kurrent.SubscribeToAllOptions{
-		Filter: &kurrent.SubscriptionFilter{
-			Type:     kurrent.StreamFilterType,
+	db.SubscribeToAll(context.Background(), kurrentdb.SubscribeToAllOptions{
+		Filter: &kurrentdb.SubscriptionFilter{
+			Type:     kurrentdb.StreamFilterType,
 			Prefixes: []string{"test-"},
 		},
 	})
 	// endregion stream-prefix-filtered-subscription
 	// region stream-regex-filtered-subscription
-	db.SubscribeToAll(context.Background(), kurrent.SubscribeToAllOptions{
-		Filter: &kurrent.SubscriptionFilter{
-			Type:  kurrent.StreamFilterType,
+	db.SubscribeToAll(context.Background(), kurrentdb.SubscribeToAllOptions{
+		Filter: &kurrentdb.SubscriptionFilter{
+			Type:  kurrentdb.StreamFilterType,
 			Regex: "/invoice-\\d\\d\\d/g",
 		},
 	})
 	// endregion stream-regex-filtered-subscription
 }
 
-func SubscribeToAllOverridingUserCredentials(db *kurrent.Client) {
+func SubscribeToAllOverridingUserCredentials(db *kurrentdb.Client) {
 	// region overriding-user-credentials
-	db.SubscribeToAll(context.Background(), kurrent.SubscribeToAllOptions{
-		Authenticated: &kurrent.Credentials{
+	db.SubscribeToAll(context.Background(), kurrentdb.SubscribeToAllOptions{
+		Authenticated: &kurrentdb.Credentials{
 			Login:    "admin",
 			Password: "changeit",
 		},

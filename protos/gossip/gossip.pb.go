@@ -7,7 +7,7 @@
 package gossip
 
 import (
-	shared "github.com/EventStore/EventStore-Client-Go/v4/protos/shared"
+	shared "github.com/EventStore/EventStore-Client-Go/v1/protos/shared"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"

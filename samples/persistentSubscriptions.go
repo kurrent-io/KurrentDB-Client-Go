@@ -6,12 +6,12 @@ import (
 	"log"
 	"strings"
 
-	"github.com/EventStore/EventStore-Client-Go/v4/kurrent"
+	"github.com/EventStore/EventStore-Client-Go/v1/kurrent"
 )
 
-func createPersistentSubscription(client *kurrent.Client) {
+func createPersistentSubscription(client *kurrentdb.Client) {
 	// #region create-persistent-subscription-to-stream
-	err := client.CreatePersistentSubscription(context.Background(), "test-stream", "subscription-group", kurrent.PersistentStreamSubscriptionOptions{})
+	err := client.CreatePersistentSubscription(context.Background(), "test-stream", "subscription-group", kurrentdb.PersistentStreamSubscriptionOptions{})
 
 	if err != nil {
 		panic(err)
@@ -19,9 +19,9 @@ func createPersistentSubscription(client *kurrent.Client) {
 	// #endregion create-persistent-subscription-to-stream
 }
 
-func connectToPersistentSubscriptionToStream(client *kurrent.Client) {
+func connectToPersistentSubscriptionToStream(client *kurrentdb.Client) {
 	// #region subscribe-to-persistent-subscription-to-stream
-	sub, err := client.SubscribeToPersistentSubscription(context.Background(), "test-stream", "subscription-group", kurrent.SubscribeToPersistentSubscriptionOptions{})
+	sub, err := client.SubscribeToPersistentSubscription(context.Background(), "test-stream", "subscription-group", kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 
 	if err != nil {
 		panic(err)
@@ -41,9 +41,9 @@ func connectToPersistentSubscriptionToStream(client *kurrent.Client) {
 	// #endregion subscribe-to-persistent-subscription-to-stream
 }
 
-func connectToPersistentSubscriptionToAll(client *kurrent.Client) {
+func connectToPersistentSubscriptionToAll(client *kurrentdb.Client) {
 	// #region subscribe-to-persistent-subscription-to-all
-	sub, err := client.SubscribeToPersistentSubscriptionToAll(context.Background(), "subscription-group", kurrent.SubscribeToPersistentSubscriptionOptions{})
+	sub, err := client.SubscribeToPersistentSubscriptionToAll(context.Background(), "subscription-group", kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 
 	if err != nil {
 		panic(err)
@@ -63,11 +63,11 @@ func connectToPersistentSubscriptionToAll(client *kurrent.Client) {
 	// #endregion subscribe-to-persistent-subscription-to-all
 }
 
-func createPersistentSubscriptionToAll(client *kurrent.Client) {
+func createPersistentSubscriptionToAll(client *kurrentdb.Client) {
 	// #region create-persistent-subscription-to-all
-	options := kurrent.PersistentAllSubscriptionOptions{
-		Filter: &kurrent.SubscriptionFilter{
-			Type:     kurrent.StreamFilterType,
+	options := kurrentdb.PersistentAllSubscriptionOptions{
+		Filter: &kurrentdb.SubscriptionFilter{
+			Type:     kurrentdb.StreamFilterType,
 			Prefixes: []string{"test"},
 		},
 	}
@@ -80,9 +80,9 @@ func createPersistentSubscriptionToAll(client *kurrent.Client) {
 	// #endregion create-persistent-subscription-to-all
 }
 
-func connectToPersistentSubscriptionWithManualAcks(client *kurrent.Client) {
+func connectToPersistentSubscriptionWithManualAcks(client *kurrentdb.Client) {
 	// #region subscribe-to-persistent-subscription-with-manual-acks
-	sub, err := client.SubscribeToPersistentSubscription(context.Background(), "test-stream", "subscription-group", kurrent.SubscribeToPersistentSubscriptionOptions{})
+	sub, err := client.SubscribeToPersistentSubscription(context.Background(), "test-stream", "subscription-group", kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 
 	if err != nil {
 		panic(err)
@@ -102,10 +102,10 @@ func connectToPersistentSubscriptionWithManualAcks(client *kurrent.Client) {
 	// #endregion subscribe-to-persistent-subscription-with-manual-acks
 }
 
-func updatePersistentSubscription(client *kurrent.Client) {
+func updatePersistentSubscription(client *kurrentdb.Client) {
 	// #region update-persistent-subscription
-	options := kurrent.PersistentStreamSubscriptionOptions{
-		Settings: &kurrent.PersistentSubscriptionSettings{
+	options := kurrentdb.PersistentStreamSubscriptionOptions{
+		Settings: &kurrentdb.PersistentSubscriptionSettings{
 			ResolveLinkTos:       true,
 			CheckpointLowerBound: 20,
 		},
@@ -119,9 +119,9 @@ func updatePersistentSubscription(client *kurrent.Client) {
 	// #endregion update-persistent-subscription
 }
 
-func deletePersistentSubscription(client *kurrent.Client) {
+func deletePersistentSubscription(client *kurrentdb.Client) {
 	// #region delete-persistent-subscription
-	err := client.DeletePersistentSubscription(context.Background(), "test-stream", "subscription-group", kurrent.DeletePersistentSubscriptionOptions{})
+	err := client.DeletePersistentSubscription(context.Background(), "test-stream", "subscription-group", kurrentdb.DeletePersistentSubscriptionOptions{})
 
 	if err != nil {
 		panic(err)
@@ -129,9 +129,9 @@ func deletePersistentSubscription(client *kurrent.Client) {
 	// #endregion delete-persistent-subscription
 }
 
-func deletePersistentSubscriptionToAll(client *kurrent.Client) {
+func deletePersistentSubscriptionToAll(client *kurrentdb.Client) {
 	// #region delete-persistent-subscription-all
-	err := client.DeletePersistentSubscriptionToAll(context.Background(), "test-stream", kurrent.DeletePersistentSubscriptionOptions{})
+	err := client.DeletePersistentSubscriptionToAll(context.Background(), "test-stream", kurrentdb.DeletePersistentSubscriptionOptions{})
 
 	if err != nil {
 		panic(err)
@@ -139,9 +139,9 @@ func deletePersistentSubscriptionToAll(client *kurrent.Client) {
 	// #endregion delete-persistent-subscription-all
 }
 
-func getPersistentSubscriptionToStreamInfo(client *kurrent.Client) {
+func getPersistentSubscriptionToStreamInfo(client *kurrentdb.Client) {
 	// #region get-persistent-subscription-to-stream-info
-	info, err := client.GetPersistentSubscriptionInfo(context.Background(), "test-stream", "subscription-group", kurrent.GetPersistentSubscriptionOptions{})
+	info, err := client.GetPersistentSubscriptionInfo(context.Background(), "test-stream", "subscription-group", kurrentdb.GetPersistentSubscriptionOptions{})
 
 	if err != nil {
 		panic(err)
@@ -151,9 +151,9 @@ func getPersistentSubscriptionToStreamInfo(client *kurrent.Client) {
 	// #endregion get-persistent-subscription-to-stream-info
 }
 
-func getPersistentSubscriptionToAllInfo(client *kurrent.Client) {
+func getPersistentSubscriptionToAllInfo(client *kurrentdb.Client) {
 	// #region get-persistent-subscription-to-all-info
-	info, err := client.GetPersistentSubscriptionInfoToAll(context.Background(), "subscription-group", kurrent.GetPersistentSubscriptionOptions{})
+	info, err := client.GetPersistentSubscriptionInfoToAll(context.Background(), "subscription-group", kurrentdb.GetPersistentSubscriptionOptions{})
 
 	if err != nil {
 		panic(err)
@@ -163,9 +163,9 @@ func getPersistentSubscriptionToAllInfo(client *kurrent.Client) {
 	// #endregion get-persistent-subscription-to-all-info
 }
 
-func replayParkedToStream(client *kurrent.Client) {
+func replayParkedToStream(client *kurrentdb.Client) {
 	// #region replay-parked-of-persistent-subscription-to-stream
-	err := client.ReplayParkedMessages(context.Background(), "test-stream", "subscription-group", kurrent.ReplayParkedMessagesOptions{
+	err := client.ReplayParkedMessages(context.Background(), "test-stream", "subscription-group", kurrentdb.ReplayParkedMessagesOptions{
 		StopAt: 10,
 	})
 
@@ -175,9 +175,9 @@ func replayParkedToStream(client *kurrent.Client) {
 	// #endregion replay-parked-of-persistent-subscription-to-stream
 }
 
-func replayParkedToAll(client *kurrent.Client) {
+func replayParkedToAll(client *kurrentdb.Client) {
 	// #region replay-parked-of-persistent-subscription-to-all
-	err := client.ReplayParkedMessagesToAll(context.Background(), "subscription-group", kurrent.ReplayParkedMessagesOptions{
+	err := client.ReplayParkedMessagesToAll(context.Background(), "subscription-group", kurrentdb.ReplayParkedMessagesOptions{
 		StopAt: 10,
 	})
 
@@ -187,9 +187,9 @@ func replayParkedToAll(client *kurrent.Client) {
 	// #endregion replay-parked-of-persistent-subscription-to-all
 }
 
-func listPersistentSubscriptionsToStream(client *kurrent.Client) {
+func listPersistentSubscriptionsToStream(client *kurrentdb.Client) {
 	// #region list-persistent-subscriptions-to-stream
-	subs, err := client.ListPersistentSubscriptionsForStream(context.Background(), "test-stream", kurrent.ListPersistentSubscriptionsOptions{})
+	subs, err := client.ListPersistentSubscriptionsForStream(context.Background(), "test-stream", kurrentdb.ListPersistentSubscriptionsOptions{})
 
 	if err != nil {
 		panic(err)
@@ -213,9 +213,9 @@ func listPersistentSubscriptionsToStream(client *kurrent.Client) {
 	// #endregion list-persistent-subscriptions-to-stream
 }
 
-func listPersistentSubscriptionsToAll(client *kurrent.Client) {
+func listPersistentSubscriptionsToAll(client *kurrentdb.Client) {
 	// #region list-persistent-subscriptions-to-all
-	subs, err := client.ListPersistentSubscriptionsToAll(context.Background(), kurrent.ListPersistentSubscriptionsOptions{})
+	subs, err := client.ListPersistentSubscriptionsToAll(context.Background(), kurrentdb.ListPersistentSubscriptionsOptions{})
 
 	if err != nil {
 		panic(err)
@@ -239,9 +239,9 @@ func listPersistentSubscriptionsToAll(client *kurrent.Client) {
 	// #endregion list-persistent-subscriptions-to-all
 }
 
-func restartPersistentSubscriptionSubsystem(client *kurrent.Client) {
+func restartPersistentSubscriptionSubsystem(client *kurrentdb.Client) {
 	// #region restart-persistent-subscription-subsystem
-	err := client.RestartPersistentSubscriptionSubsystem(context.Background(), kurrent.RestartPersistentSubscriptionSubsystemOptions{})
+	err := client.RestartPersistentSubscriptionSubsystem(context.Background(), kurrentdb.RestartPersistentSubscriptionSubsystemOptions{})
 
 	if err != nil {
 		panic(err)

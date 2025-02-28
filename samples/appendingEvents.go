@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"log"
 
-	"github.com/EventStore/EventStore-Client-Go/v4/kurrent"
+	"github.com/EventStore/EventStore-Client-Go/v1/kurrent"
 )
 
 type TestEvent struct {
@@ -14,7 +14,7 @@ type TestEvent struct {
 	ImportantData string
 }
 
-func AppendToStream(db *kurrent.Client) {
+func AppendToStream(db *kurrentdb.Client) {
 	// region append-to-stream
 	data := TestEvent{
 		Id:            "1",
@@ -26,12 +26,12 @@ func AppendToStream(db *kurrent.Client) {
 		panic(err)
 	}
 
-	options := kurrent.AppendToStreamOptions{
-		ExpectedRevision: kurrent.NoStream{},
+	options := kurrentdb.AppendToStreamOptions{
+		ExpectedRevision: kurrentdb.NoStream{},
 	}
 
-	result, err := db.AppendToStream(context.Background(), "some-stream", options, kurrent.EventData{
-		ContentType: kurrent.ContentTypeJson,
+	result, err := db.AppendToStream(context.Background(), "some-stream", options, kurrentdb.EventData{
+		ContentType: kurrentdb.ContentTypeJson,
 		EventType:   "some-event",
 		Data:        bytes,
 	})
@@ -40,7 +40,7 @@ func AppendToStream(db *kurrent.Client) {
 	log.Printf("Result: %v", result)
 }
 
-func AppendWithSameId(db *kurrent.Client) {
+func AppendWithSameId(db *kurrentdb.Client) {
 	// region append-duplicate-event
 	data := TestEvent{
 		Id:            "1",
@@ -53,21 +53,21 @@ func AppendWithSameId(db *kurrent.Client) {
 	}
 
 	id := uuid.New()
-	event := kurrent.EventData{
-		ContentType: kurrent.ContentTypeJson,
+	event := kurrentdb.EventData{
+		ContentType: kurrentdb.ContentTypeJson,
 		EventType:   "some-event",
 		EventID:     id,
 		Data:        bytes,
 	}
 
-	_, err = db.AppendToStream(context.Background(), "some-stream", kurrent.AppendToStreamOptions{}, event)
+	_, err = db.AppendToStream(context.Background(), "some-stream", kurrentdb.AppendToStreamOptions{}, event)
 
 	if err != nil {
 		panic(err)
 	}
 
 	// attempt to append the same event again
-	_, err = db.AppendToStream(context.Background(), "some-stream", kurrent.AppendToStreamOptions{}, event)
+	_, err = db.AppendToStream(context.Background(), "some-stream", kurrentdb.AppendToStreamOptions{}, event)
 
 	if err != nil {
 		panic(err)
@@ -76,7 +76,7 @@ func AppendWithSameId(db *kurrent.Client) {
 	// endregion append-duplicate-event
 }
 
-func AppendWithNoStream(db *kurrent.Client) {
+func AppendWithNoStream(db *kurrentdb.Client) {
 	// region append-with-no-stream
 	data := TestEvent{
 		Id:            "1",
@@ -88,12 +88,12 @@ func AppendWithNoStream(db *kurrent.Client) {
 		panic(err)
 	}
 
-	options := kurrent.AppendToStreamOptions{
-		ExpectedRevision: kurrent.NoStream{},
+	options := kurrentdb.AppendToStreamOptions{
+		ExpectedRevision: kurrentdb.NoStream{},
 	}
 
-	_, err = db.AppendToStream(context.Background(), "same-event-stream", options, kurrent.EventData{
-		ContentType: kurrent.ContentTypeJson,
+	_, err = db.AppendToStream(context.Background(), "same-event-stream", options, kurrentdb.EventData{
+		ContentType: kurrentdb.ContentTypeJson,
 		EventType:   "some-event",
 		Data:        bytes,
 	})
@@ -111,19 +111,19 @@ func AppendWithNoStream(db *kurrent.Client) {
 	}
 
 	// attempt to append the same event again
-	_, err = db.AppendToStream(context.Background(), "same-event-stream", options, kurrent.EventData{
-		ContentType: kurrent.ContentTypeJson,
+	_, err = db.AppendToStream(context.Background(), "same-event-stream", options, kurrentdb.EventData{
+		ContentType: kurrentdb.ContentTypeJson,
 		EventType:   "some-event",
 		Data:        bytes,
 	})
 	// endregion append-with-no-stream
 }
 
-func AppendWithConcurrencyCheck(db *kurrent.Client) {
+func AppendWithConcurrencyCheck(db *kurrentdb.Client) {
 	// region append-with-concurrency-check
-	ropts := kurrent.ReadStreamOptions{
-		Direction: kurrent.Backwards,
-		From:      kurrent.End{},
+	ropts := kurrentdb.ReadStreamOptions{
+		Direction: kurrentdb.Backwards,
+		From:      kurrentdb.End{},
 	}
 
 	stream, err := db.ReadStream(context.Background(), "concurrency-stream", ropts, 1)
@@ -150,12 +150,12 @@ func AppendWithConcurrencyCheck(db *kurrent.Client) {
 		panic(err)
 	}
 
-	aopts := kurrent.AppendToStreamOptions{
+	aopts := kurrentdb.AppendToStreamOptions{
 		ExpectedRevision: lastEvent.OriginalStreamRevision(),
 	}
 
-	_, err = db.AppendToStream(context.Background(), "concurrency-stream", aopts, kurrent.EventData{
-		ContentType: kurrent.ContentTypeJson,
+	_, err = db.AppendToStream(context.Background(), "concurrency-stream", aopts, kurrentdb.EventData{
+		ContentType: kurrentdb.ContentTypeJson,
 		EventType:   "some-event",
 		Data:        bytes,
 	})
@@ -169,15 +169,15 @@ func AppendWithConcurrencyCheck(db *kurrent.Client) {
 		panic(err)
 	}
 
-	_, err = db.AppendToStream(context.Background(), "concurrency-stream", aopts, kurrent.EventData{
-		ContentType: kurrent.ContentTypeJson,
+	_, err = db.AppendToStream(context.Background(), "concurrency-stream", aopts, kurrentdb.EventData{
+		ContentType: kurrentdb.ContentTypeJson,
 		EventType:   "some-event",
 		Data:        bytes,
 	})
 	// endregion append-with-concurrency-check
 }
 
-func AppendToStreamOverridingUserCredentials(db *kurrent.Client) {
+func AppendToStreamOverridingUserCredentials(db *kurrentdb.Client) {
 	data := TestEvent{
 		Id:            "1",
 		ImportantData: "some value",
@@ -188,16 +188,16 @@ func AppendToStreamOverridingUserCredentials(db *kurrent.Client) {
 		panic(err)
 	}
 
-	event := kurrent.EventData{
-		ContentType: kurrent.ContentTypeJson,
+	event := kurrentdb.EventData{
+		ContentType: kurrentdb.ContentTypeJson,
 		EventType:   "some-event",
 		Data:        bytes,
 	}
 
 	// region overriding-user-credentials
-	credentials := &kurrent.Credentials{Login: "admin", Password: "changeit"}
+	credentials := &kurrentdb.Credentials{Login: "admin", Password: "changeit"}
 
-	result, err := db.AppendToStream(context.Background(), "some-stream", kurrent.AppendToStreamOptions{Authenticated: credentials}, event)
+	result, err := db.AppendToStream(context.Background(), "some-stream", kurrentdb.AppendToStreamOptions{Authenticated: credentials}, event)
 	// endregion overriding-user-credentials
 
 	log.Printf("Result: %v", result)

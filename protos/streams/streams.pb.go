@@ -7,7 +7,7 @@
 package streams
 
 import (
-	shared "github.com/EventStore/EventStore-Client-Go/v4/protos/shared"
+	shared "github.com/EventStore/EventStore-Client-Go/v1/protos/shared"
 	status "google.golang.org/genproto/googleapis/rpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
