@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/EventStore/EventStore-Client-Go/v1/kurrent"
+	"github.com/EventStore/EventStore-Client-Go/v1/kurrentdb"
 )
 
 func SubscribeToStream(db *kurrentdb.Client) {

@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"io"
 
-	"github.com/EventStore/EventStore-Client-Go/v1/kurrent"
+	"github.com/EventStore/EventStore-Client-Go/v1/kurrentdb"
 )
 
 func Run() {

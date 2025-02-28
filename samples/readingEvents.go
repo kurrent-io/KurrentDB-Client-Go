@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/EventStore/EventStore-Client-Go/v1/kurrent"
+	"github.com/EventStore/EventStore-Client-Go/v1/kurrentdb"
 )
 
 func ReadFromStream(db *kurrentdb.Client) {
