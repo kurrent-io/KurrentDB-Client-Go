@@ -140,7 +140,7 @@ func streamSubscriptionDeliversAllEventsInStreamAndListensForNewEvents(db *esdb.
 
 		// Write a new event
 		opts2 := esdb.AppendToStreamOptions{
-			ExpectedRevision: esdb.Revision(5_999),
+			StreamState: esdb.Revision(5_999),
 		}
 		writeResult, err := db.AppendToStream(context.Background(), streamID, opts2, testEvent)
 		require.NoError(t, err)

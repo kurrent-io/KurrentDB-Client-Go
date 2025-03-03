@@ -19,7 +19,7 @@ func DeleteTests(t *testing.T, db *esdb.Client) {
 func canDeleteStream(db *esdb.Client) TestCall {
 	return func(t *testing.T) {
 		opts := esdb.DeleteStreamOptions{
-			ExpectedRevision: esdb.Revision(0),
+			StreamState: esdb.Revision(0),
 		}
 
 		streamID := NAME_GENERATOR.Generate()
@@ -43,7 +43,7 @@ func canTombstoneStream(db *esdb.Client) TestCall {
 
 		_, err := db.AppendToStream(context.Background(), streamId, esdb.AppendToStreamOptions{}, createTestEvent())
 		deleteResult, err := db.TombstoneStream(context.Background(), streamId, esdb.TombstoneStreamOptions{
-			ExpectedRevision: esdb.Revision(0),
+			StreamState: esdb.Revision(0),
 		})
 
 		if err != nil {

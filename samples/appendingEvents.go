@@ -27,7 +27,7 @@ func AppendToStream(db *esdb.Client) {
 	}
 
 	options := esdb.AppendToStreamOptions{
-		ExpectedRevision: esdb.NoStream{},
+		StreamState: esdb.NoStream{},
 	}
 
 	result, err := db.AppendToStream(context.Background(), "some-stream", options, esdb.EventData{
@@ -89,7 +89,7 @@ func AppendWithNoStream(db *esdb.Client) {
 	}
 
 	options := esdb.AppendToStreamOptions{
-		ExpectedRevision: esdb.NoStream{},
+		StreamState: esdb.NoStream{},
 	}
 
 	_, err = db.AppendToStream(context.Background(), "same-event-stream", options, esdb.EventData{
@@ -151,7 +151,7 @@ func AppendWithConcurrencyCheck(db *esdb.Client) {
 	}
 
 	aopts := esdb.AppendToStreamOptions{
-		ExpectedRevision: lastEvent.OriginalStreamRevision(),
+		StreamState: lastEvent.OriginalStreamRevision(),
 	}
 
 	_, err = db.AppendToStream(context.Background(), "concurrency-stream", aopts, esdb.EventData{

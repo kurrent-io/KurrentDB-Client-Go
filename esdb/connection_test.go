@@ -27,7 +27,7 @@ func closeConnection(container *Container) TestCall {
 		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 		defer cancel()
 		opts := esdb.AppendToStreamOptions{
-			ExpectedRevision: esdb.NoStream{},
+			StreamState: esdb.NoStream{},
 		}
 		_, err := db.AppendToStream(context, streamID.String(), opts, testEvent)
 
@@ -36,7 +36,7 @@ func closeConnection(container *Container) TestCall {
 		}
 
 		db.Close()
-		opts.ExpectedRevision = esdb.Any{}
+		opts.StreamState = esdb.Any{}
 		_, err = db.AppendToStream(context, streamID.String(), opts, testEvent)
 
 		esdbErr, ok := esdb.FromError(err)

@@ -247,7 +247,7 @@ func pushEventsToStream(t *testing.T,
 	events []esdb.EventData) {
 
 	opts := esdb.AppendToStreamOptions{
-		ExpectedRevision: esdb.NoStream{},
+		StreamState: esdb.NoStream{},
 	}
 	_, err := clientInstance.AppendToStream(context.Background(), streamID, opts, events...)
 

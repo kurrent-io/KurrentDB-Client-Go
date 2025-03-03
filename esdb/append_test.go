@@ -64,7 +64,7 @@ func appendToStreamSingleEventNoStream(db *esdb.Client) TestCall {
 		defer cancel()
 
 		opts := esdb.AppendToStreamOptions{
-			ExpectedRevision: esdb.NoStream{},
+			StreamState: esdb.NoStream{},
 		}
 
 		_, err := db.AppendToStream(context, streamID.String(), opts, testEvent)
@@ -103,7 +103,7 @@ func appendWithInvalidStreamRevision(db *esdb.Client) TestCall {
 		defer cancel()
 
 		opts := esdb.AppendToStreamOptions{
-			ExpectedRevision: esdb.StreamExists{},
+			StreamState: esdb.StreamExists{},
 		}
 
 		_, err := db.AppendToStream(context, streamID.String(), opts, createTestEvent())
@@ -139,7 +139,7 @@ func appendToSystemStreamWithIncorrectCredentials(container *Container) TestCall
 		defer cancel()
 
 		opts := esdb.AppendToStreamOptions{
-			ExpectedRevision: esdb.Any{},
+			StreamState: esdb.Any{},
 		}
 
 		_, err = db.AppendToStream(context, streamID.String(), opts, createTestEvent())
@@ -156,7 +156,7 @@ func metadataOperation(db *esdb.Client) TestCall {
 		defer cancel()
 
 		opts := esdb.AppendToStreamOptions{
-			ExpectedRevision: esdb.Any{},
+			StreamState: esdb.Any{},
 		}
 
 		_, err := db.AppendToStream(context, streamID.String(), opts, createTestEvent())

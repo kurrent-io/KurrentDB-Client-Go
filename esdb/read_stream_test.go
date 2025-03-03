@@ -6,8 +6,8 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"io"
-	"os"
 	"math"
+	"os"
 	"testing"
 	"time"
 
@@ -199,7 +199,7 @@ func readStreamReturnsEOFAfterCompletion(db *esdb.Client) TestCall {
 		}
 
 		opts := esdb.AppendToStreamOptions{
-			ExpectedRevision: esdb.NoStream{},
+			StreamState: esdb.NoStream{},
 		}
 
 		streamID := NAME_GENERATOR.Generate()
