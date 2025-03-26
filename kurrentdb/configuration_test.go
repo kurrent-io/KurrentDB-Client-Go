@@ -1,9 +1,10 @@
 package kurrentdb_test
 
 import (
-	"github.com/EventStore/EventStore-Client-Go/v1/kurrentdb"
 	"testing"
 	"time"
+
+	"github.com/EventStore/EventStore-Client-Go/v1/kurrentdb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,6 +103,31 @@ func TestConnectionStringDefaultsKdb(t *testing.T) {
 
 func TestConnectionStringDefaultsKdbDiscover(t *testing.T) {
 	config, err := kurrentdb.ParseConnectionString("kdb+discover://localhost")
+	assert.NoError(t, err)
+	assert.Equal(t, "localhost:2113", config.Address)
+	assert.Equal(t, 100, config.DiscoveryInterval)
+	assert.Equal(t, 5, config.GossipTimeout)
+	assert.Equal(t, 10, config.MaxDiscoverAttempts)
+	assert.Equal(t, 10*time.Second, config.KeepAliveInterval)
+	assert.Equal(t, 10*time.Second, config.KeepAliveTimeout)
+	assert.Equal(t, kurrentdb.NodePreferenceLeader, config.NodePreference)
+	assert.True(t, config.DnsDiscover)
+}
+
+func TestConnectionStringDefaultsKurrentDb(t *testing.T) {
+	config, err := kurrentdb.ParseConnectionString("kurrentbd://localhost")
+	assert.NoError(t, err)
+	assert.Equal(t, "localhost:2113", config.Address)
+	assert.Equal(t, 100, config.DiscoveryInterval)
+	assert.Equal(t, 5, config.GossipTimeout)
+	assert.Equal(t, 10, config.MaxDiscoverAttempts)
+	assert.Equal(t, 10*time.Second, config.KeepAliveInterval)
+	assert.Equal(t, 10*time.Second, config.KeepAliveTimeout)
+	assert.Equal(t, kurrentdb.NodePreferenceLeader, config.NodePreference)
+}
+
+func TestConnectionStringDefaultsKurrentDbDiscover(t *testing.T) {
+	config, err := kurrentdb.ParseConnectionString("kurrentbd+discover://localhost")
 	assert.NoError(t, err)
 	assert.Equal(t, "localhost:2113", config.Address)
 	assert.Equal(t, 100, config.DiscoveryInterval)

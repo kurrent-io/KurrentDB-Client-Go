@@ -18,6 +18,8 @@ var supportedProtocols = map[string]struct{}{
 	"kdb+discover":     {},
 	"kurrent":          {},
 	"kurrent+discover": {},
+	"kurrentdb":          {},
+	"kurrentdb+discover": {},
 }
 
 var basepath string
