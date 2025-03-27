@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	EVENTSTORE_DOCKER_REPOSITORY = "EVENTSTORE_DOCKER_REPOSITORY"
-	EVENTSTORE_DOCKER_TAG        = "EVENTSTORE_DOCKER_TAG"
-	EVENTSTORE_DOCKER_PORT_ENV   = "EVENTSTORE_DOCKER_PORT"
+	EVENTSTORE_DOCKER_REGISTRY = "EVENTSTORE_DOCKER_REGISTRY"
+	EVENTSTORE_DOCKER_IMAGE    = "EVENTSTORE_DOCKER_IMAGE"
+	EVENTSTORE_DOCKER_TAG      = "EVENTSTORE_DOCKER_TAG"
+	EVENTSTORE_DOCKER_PORT_ENV = "EVENTSTORE_DOCKER_PORT"
 )
 
 var (
@@ -36,22 +37,25 @@ type Container struct {
 }
 
 type EventStoreDockerConfig struct {
-	Repository string
-	Tag        string
-	Port       string
-	Insecure   bool
+	Registry string
+	Image    string
+	Tag      string
+	Port     string
+	Insecure bool
 }
 
 const (
-	DEFAULT_EVENTSTORE_DOCKER_REPOSITORY = "docker.eventstore.com/eventstore-utils/testdata"
-	DEFAULT_EVENTSTORE_DOCKER_TAG        = "latest"
-	DEFAULT_EVENTSTORE_DOCKER_PORT       = "2113"
+	DEFAULT_EVENTSTORE_DOCKER_REGISTRY = "docker.eventstore.com/eventstore-utils"
+	DEFAULT_EVENTSTORE_DOCKER_IMAGE    = "testdata"
+	DEFAULT_EVENTSTORE_DOCKER_TAG      = "latest"
+	DEFAULT_EVENTSTORE_DOCKER_PORT     = "2113"
 )
 
 var defaultEventStoreDockerConfig = EventStoreDockerConfig{
-	Repository: DEFAULT_EVENTSTORE_DOCKER_REPOSITORY,
-	Tag:        DEFAULT_EVENTSTORE_DOCKER_TAG,
-	Port:       DEFAULT_EVENTSTORE_DOCKER_PORT,
+	Registry: DEFAULT_EVENTSTORE_DOCKER_REGISTRY,
+	Image:    DEFAULT_EVENTSTORE_DOCKER_IMAGE,
+	Tag:      DEFAULT_EVENTSTORE_DOCKER_TAG,
+	Port:     DEFAULT_EVENTSTORE_DOCKER_PORT,
 }
 
 func GetEnvOrDefault(key, defaultValue string) string {
@@ -62,7 +66,8 @@ func GetEnvOrDefault(key, defaultValue string) string {
 }
 
 func readEnvironmentVariables(config EventStoreDockerConfig) EventStoreDockerConfig {
-	config.Repository = GetEnvOrDefault(EVENTSTORE_DOCKER_REPOSITORY, config.Repository)
+	config.Registry = GetEnvOrDefault(EVENTSTORE_DOCKER_REGISTRY, config.Registry)
+	config.Image = GetEnvOrDefault(EVENTSTORE_DOCKER_IMAGE, config.Image)
 	config.Tag = GetEnvOrDefault(EVENTSTORE_DOCKER_TAG, config.Tag)
 	config.Port = GetEnvOrDefault(EVENTSTORE_DOCKER_PORT_ENV, config.Port)
 
@@ -153,7 +158,7 @@ func getContainerRequest() (*EventStoreDockerConfig, *testcontainers.ContainerRe
 	env["EventStore__Plugins__UserCertificates__Enabled"] = "true"
 
 	return &config, &testcontainers.ContainerRequest{
-		Image:        fmt.Sprintf("%s:%s", config.Repository, config.Tag),
+		Image:        fmt.Sprintf("%s/%s:%s", config.Registry, config.Image, config.Tag),
 		ExposedPorts: []string{config.Port},
 		Env:          env,
 		Files:        files,

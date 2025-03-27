@@ -3,7 +3,15 @@ name: tests workflow
 on:
   workflow_call:
     inputs:
-      esdb_version:
+      registry:
+        required: true
+        type: string
+
+      tag:
+        required: true
+        type: string
+
+      image:
         required: true
         type: string
 
@@ -33,7 +41,9 @@ jobs:
       - name: Run Go Tests
         run: make ci CI_TARGET=Test${{ matrix.test }}
         env:
-          EVENTSTORE_DOCKER_TAG: ${{ inputs.esdb_version }}
+          EVENTSTORE_DOCKER_TAG: ${{ inputs.tag }}
+          EVENTSTORE_DOCKER_REGISTRY: ${{ inputs.registry }}
+          EVENTSTORE_DOCKER_IMAGE: ${{ inputs.image }}
           EVENTSTORE_INSECURE: true
 
   secure:
@@ -58,7 +68,9 @@ jobs:
         run: make ci CI_TARGET=Test${{ matrix.test }}
 
         env:
-          EVENTSTORE_DOCKER_TAG: ${{ inputs.esdb_version }}
+          EVENTSTORE_DOCKER_TAG: ${{ inputs.tag }}
+          EVENTSTORE_DOCKER_REGISTRY: ${{ inputs.registry }}
+          EVENTSTORE_DOCKER_IMAGE: ${{ inputs.image }}
           EVENTSTORE_INSECURE: false
 
   cluster:
@@ -80,7 +92,9 @@ jobs:
         run: |
           docker compose -f cluster-docker-compose.yml up -d
         env:
-          EVENTSTORE_DOCKER_TAG: ${{ inputs.esdb_version }}
+          EVENTSTORE_DOCKER_TAG: ${{ inputs.tag }}
+          EVENTSTORE_DOCKER_REGISTRY: ${{ inputs.registry }}
+          EVENTSTORE_DOCKER_IMAGE: ${{ inputs.image }}
 
       - name: Run Go Tests
         run: make ci CI_TARGET=Test${{ matrix.test }}

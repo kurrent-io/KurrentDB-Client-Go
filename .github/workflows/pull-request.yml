@@ -37,7 +37,9 @@ jobs:
 
     uses: ./.github/workflows/tests.yml
     with:
-      esdb_version: ${{ matrix.version }}
+      tag: ${{ matrix.version }}
+      image: eventstoredb-ce
+      registry: docker.eventstore.com/eventstore-ce
       go_version: ${{ needs.go-version.outputs.go_version }}
 
   plugins-tests:
@@ -47,13 +49,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [24.2.0-jammy]
+        tag: [24.2.0-jammy]
 
     uses: ./.github/workflows/test-plugins.yml
     with:
-      esdb_version: ${{ matrix.version }}
+      tag: ${{ matrix.tag }}
+      image: "eventstoredb-commercial"
+      registry: "docker.eventstore.com/eventstore-ee"
       go_version: ${{ needs.go-version.outputs.go_version }}
-      esdb_repository: "docker.eventstore.com/eventstore-ee/eventstoredb-commercial"
     secrets: inherit
 
   linting:

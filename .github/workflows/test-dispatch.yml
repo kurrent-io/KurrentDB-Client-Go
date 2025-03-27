@@ -3,10 +3,18 @@ name: "Dispatch"
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version tag"
-        required: true
+      tag:
+        required: false
         type: string
+        default: "ci"
+      image:
+        required: false
+        type: string
+        default: "kurrentdb"
+      registry:
+        required: false
+        type: string
+        default: "docker.kurrent.io/kurrent-staging"
 
 jobs:
   go-version:
@@ -17,7 +25,9 @@ jobs:
     name: Test
     uses: ./.github/workflows/tests.yml
     with:
-      esdb_version: ${{ inputs.version }}
+      image: ${{ inputs.image }}
+      tag: ${{ inputs.tag }}
+      registry: ${{ inputs.registry }}
       go_version: ${{ needs.go-version.outputs.go_version }}
 
   plugins-tests:
@@ -25,7 +35,8 @@ jobs:
     name: Plugins Tests
     uses: ./.github/workflows/test-plugins.yml
     with:
-      esdb_version: ${{ inputs.version }}
+      tag: ${{ inputs.tag }}
+      image: eventstoredb-commercial
+      registry: "docker.eventstore.com/eventstore-ee"
       go_version: ${{ needs.go-version.outputs.go_version }}
-      esdb_repository: "docker.eventstore.com/eventstore-ee/eventstoredb-commercial"
     secrets: inherit
