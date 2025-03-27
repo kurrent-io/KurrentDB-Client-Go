@@ -1,0 +1,71 @@
+name: Build and Run Tests
+on: [pull_request]
+jobs:
+  go-version:
+    uses: ./.github/workflows/go-version.yml
+
+  build:
+    name: Code generation & compile
+    needs: go-version
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2019, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ needs.go-version.outputs.go_version }}
+
+      - name: Generate protos and build project
+        run: make generate-protos-and-build
+
+      - name: Misc tests
+        run: make misc
+
+  tests:
+    needs: build
+    name: Tests
+
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [previous-lts, lts, latest]
+
+    uses: ./.github/workflows/tests.yml
+    with:
+      esdb_version: ${{ matrix.version }}
+      go_version: ${{ needs.go-version.outputs.go_version }}
+
+  plugins-tests:
+    needs: build
+    name: Plugins Tests
+
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [24.2.0-jammy]
+
+    uses: ./.github/workflows/test-plugins.yml
+    with:
+      esdb_version: ${{ matrix.version }}
+      go_version: ${{ needs.go-version.outputs.go_version }}
+      esdb_repository: "docker.eventstore.com/eventstore-ee/eventstoredb-commercial"
+    secrets: inherit
+
+  linting:
+    needs: tests
+    name: Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linting
+        run: go vet ./...
+
+      - name: Code formatting checks
+        run: diff -u <(echo -n) <(goimports -d ./)

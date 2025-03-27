@@ -1,0 +1,31 @@
+name: "Dispatch"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag"
+        required: true
+        type: string
+
+jobs:
+  go-version:
+    uses: ./.github/workflows/go-version.yml
+
+  test:
+    needs: go-version
+    name: Test
+    uses: ./.github/workflows/tests.yml
+    with:
+      esdb_version: ${{ inputs.version }}
+      go_version: ${{ needs.go-version.outputs.go_version }}
+
+  plugins-tests:
+    needs: go-version
+    name: Plugins Tests
+    uses: ./.github/workflows/test-plugins.yml
+    with:
+      esdb_version: ${{ inputs.version }}
+      go_version: ${{ needs.go-version.outputs.go_version }}
+      esdb_repository: "docker.eventstore.com/eventstore-ee/eventstoredb-commercial"
+    secrets: inherit
