@@ -5,40 +5,42 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 
 	"github.com/stretchr/testify/require"
 )
 
-func PersistentSubReadTests(t *testing.T, emptyDBClient *kurrentdb.Client) {
-	t.Run("PersistentSubReadTests", func(t *testing.T) {
-		t.Run("ReadExistingStream_AckToReceiveNewEvents", persistentSubscription_ReadExistingStream_AckToReceiveNewEvents(emptyDBClient))
-		t.Run("ToExistingStream_StartFromBeginning_AndEventsInIt", persistentSubscription_ToExistingStream_StartFromBeginning_AndEventsInIt(emptyDBClient))
-		t.Run("ToNonExistingStream_StartFromBeginning_AppendEventsAfterwards", persistentSubscription_ToNonExistingStream_StartFromBeginning_AppendEventsAfterwards(emptyDBClient))
-		t.Run("ToExistingStream_StartFromEnd_EventsInItAndAppendEventsAfterwards", persistentSubscription_ToExistingStream_StartFromEnd_EventsInItAndAppendEventsAfterwards(emptyDBClient))
-		t.Run("ToExistingStream_StartFromEnd_EventsInIt", persistentSubscription_ToExistingStream_StartFromEnd_EventsInIt(emptyDBClient))
-		t.Run("ToNonExistingStream_StartFromTwo_AppendEventsAfterwards", persistentSubscription_ToNonExistingStream_StartFromTwo_AppendEventsAfterwards(emptyDBClient))
-		t.Run("ToExistingStream_StartFrom10_EventsInItAppendEventsAfterwards", persistentSubscription_ToExistingStream_StartFrom10_EventsInItAppendEventsAfterwards(emptyDBClient))
-		t.Run("ToExistingStream_StartFrom4_EventsInIt", persistentSubscription_ToExistingStream_StartFrom4_EventsInIt(emptyDBClient))
-		t.Run("ToExistingStream_StartFromHigherRevisionThenEventsInStream_EventsInItAppendEventsAfterwards", persistentSubscription_ToExistingStream_StartFromHigherRevisionThenEventsInStream_EventsInItAppendEventsAfterwards(emptyDBClient))
-		t.Run("ReadExistingStream_NackToReceiveNewEvents", persistentSubscription_ReadExistingStream_NackToReceiveNewEvents(emptyDBClient))
-		t.Run("persistentSubscriptionToAll_Read", persistentSubscriptionToAll_Read(emptyDBClient))
+func TestPersistentSubRead(t *testing.T) {
+	t.Run("cluster", func(t *testing.T) {
+		fixture := NewSecureClusterClientFixture(t)
+		defer fixture.Close(t)
+		runPersistentSubReadTests(t, fixture)
+	})
+
+	t.Run("singleNode", func(t *testing.T) {
+		fixture := NewSecureSingleNodeClientFixture(t)
+		defer fixture.Close(t)
+		runPersistentSubReadTests(t, fixture)
 	})
 }
 
-func persistentSubscription_ReadExistingStream_AckToReceiveNewEvents(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
-		firstEvent := createTestEvent()
-		secondEvent := createTestEvent()
-		thirdEvent := createTestEvent()
-		events := []kurrentdb.EventData{firstEvent, secondEvent, thirdEvent}
-		pushEventsToStream(t, clientInstance, streamID, events)
+func runPersistentSubReadTests(t *testing.T, fixture *ClientFixture) {
+	client := fixture.Client()
 
-		groupName := "Group 1"
-		err := clientInstance.CreatePersistentSubscription(
+	t.Run("ReadExistingStream_AckToReceiveNewEvents", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		firstEvent := fixture.CreateTestEvent()
+		secondEvent := fixture.CreateTestEvent()
+		thirdEvent := fixture.CreateTestEvent()
+		events := []kurrentdb.EventData{firstEvent, secondEvent, thirdEvent}
+
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{}, events...)
+		require.NoError(t, err)
+
+		groupName := fixture.NewGroupId()
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.Start{},
@@ -46,130 +48,115 @@ func persistentSubscription_ReadExistingStream_AckToReceiveNewEvents(clientInsta
 		)
 		require.NoError(t, err)
 
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{
+		readConn, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{
 				BufferSize: 2,
 			})
 		require.NoError(t, err)
-		defer readConnectionClient.Close()
+		defer readConn.Close()
 
-		firstReadEvent := readConnectionClient.Recv().EventAppeared.Event
-		require.NoError(t, err)
-		require.NotNil(t, firstReadEvent)
+		firstRead := readConn.Recv().EventAppeared.Event
+		require.NotNil(t, firstRead)
+		require.Equal(t, firstEvent.EventID, firstRead.OriginalEvent().EventID)
 
-		secondReadEvent := readConnectionClient.Recv().EventAppeared.Event
-		require.NoError(t, err)
-		require.NotNil(t, secondReadEvent)
+		secondRead := readConn.Recv().EventAppeared.Event
+		require.NotNil(t, secondRead)
+		require.Equal(t, secondEvent.EventID, secondRead.OriginalEvent().EventID)
 
-		// since buffer size is two, after reading two outstanding messages
-		// we must acknowledge a message in order to receive third one
-		err = readConnectionClient.Ack(firstReadEvent)
+		err = readConn.Ack(firstRead)
 		require.NoError(t, err)
 
-		thirdReadEvent := readConnectionClient.Recv()
-		require.NoError(t, err)
-		require.NotNil(t, thirdReadEvent)
-	}
-}
+		thirdRead := readConn.Recv()
+		require.NotNil(t, thirdRead.EventAppeared)
+		require.Equal(t, thirdEvent.EventID, thirdRead.EventAppeared.Event.OriginalEvent().EventID)
+	})
 
-func persistentSubscription_ToExistingStream_StartFromBeginning_AndEventsInIt(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		// create 10 events
-		events := testCreateEvents(10)
-
-		streamID := NAME_GENERATOR.Generate()
-		// append events to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, Events);
-		opts := kurrentdb.AppendToStreamOptions{
-			StreamState: kurrentdb.NoStream{},
+	t.Run("ToExistingStream_StartFromBeginning_AndEventsInIt", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		events := make([]kurrentdb.EventData, 10)
+		for i := 0; i < 10; i++ {
+			events[i] = fixture.CreateTestEvent()
 		}
 
-		_, err := clientInstance.AppendToStream(context.Background(), streamID, opts, events...)
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
+			StreamState: kurrentdb.NoStream{},
+		}, events...)
 		require.NoError(t, err)
-		// create persistent stream connection with StreamRevision set to Start
-		groupName := "Group 1"
-		err = clientInstance.CreatePersistentSubscription(
+
+		groupName := fixture.NewGroupId()
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.Start{},
 			},
 		)
 		require.NoError(t, err)
-		// read one event
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
-		require.NoError(t, err)
-		defer readConnectionClient.Close()
 
-		readEvent := readConnectionClient.Recv().EventAppeared.Event
+		readConn, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 		require.NoError(t, err)
-		require.NotNil(t, readEvent)
+		defer readConn.Close()
 
-		// assert Event Number == stream Start
-		// assert Event.ID == first event ID (readEvent.EventID == events[0].EventID)
-		require.EqualValues(t, 0, readEvent.OriginalEvent().EventNumber)
+		recv := readConn.Recv()
+		require.NotNil(t, t, recv.EventAppeared, "EventAppeared should not be nil")
+		readEvent := recv.EventAppeared.Event
 		require.Equal(t, events[0].EventID, readEvent.OriginalEvent().EventID)
-	}
-}
+		require.EqualValues(t, 0, readEvent.OriginalEvent().EventNumber)
+	})
 
-func persistentSubscription_ToNonExistingStream_StartFromBeginning_AppendEventsAfterwards(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		// create 10 events
-		events := testCreateEvents(10)
-
-		// create persistent stream connection with StreamRevision set to Start
-		streamID := NAME_GENERATOR.Generate()
-		groupName := "Group 1"
-		err := clientInstance.CreatePersistentSubscription(
+	t.Run("ToNonExistingStream_StartFromBeginning_AppendEventsAfterwards", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		groupName := fixture.NewGroupId()
+		err := client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.Start{},
 			},
 		)
 		require.NoError(t, err)
-		// append events to StreamsClient.AppendToStreamAsync(Stream, stream_revision.StreamRevisionNoStream, Events);
-		opts := kurrentdb.AppendToStreamOptions{
-			StreamState: kurrentdb.NoStream{},
+
+		events := make([]kurrentdb.EventData, 10)
+		for i := 0; i < 10; i++ {
+			events[i] = fixture.CreateTestEvent()
 		}
-		_, err = clientInstance.AppendToStream(context.Background(), streamID, opts, events...)
-		require.NoError(t, err)
-		// read one event
 
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
+		_, err = client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
+			StreamState: kurrentdb.NoStream{},
+		}, events...)
 		require.NoError(t, err)
-		defer readConnectionClient.Close()
 
-		readEvent := readConnectionClient.Recv().EventAppeared.Event
+		readConn, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 		require.NoError(t, err)
-		require.NotNil(t, readEvent)
-		// assert Event Number == stream Start
-		// assert Event.ID == first event ID (readEvent.EventID == events[0].EventID)
-		require.EqualValues(t, 0, readEvent.OriginalEvent().EventNumber)
+		defer readConn.Close()
+
+		recv := readConn.Recv()
+		require.NotNil(t, t, recv.EventAppeared, "EventAppeared should not be nil")
+		readEvent := recv.EventAppeared.Event
 		require.Equal(t, events[0].EventID, readEvent.OriginalEvent().EventID)
-	}
-}
+		require.EqualValues(t, 0, readEvent.OriginalEvent().EventNumber)
+	})
 
-func persistentSubscription_ToExistingStream_StartFromEnd_EventsInItAndAppendEventsAfterwards(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		// create 11 events
-		events := testCreateEvents(11)
-		// append 10 events to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, events[:10]);
-		streamID := NAME_GENERATOR.Generate()
-		// append events to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, Events);
-		opts := kurrentdb.AppendToStreamOptions{
-			StreamState: kurrentdb.NoStream{},
+	t.Run("ToExistingStream_StartFromEnd_EventsInItAndAppendEventsAfterwards", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		events := make([]kurrentdb.EventData, 11)
+		for i := 0; i < 11; i++ {
+			events[i] = fixture.CreateTestEvent()
 		}
-		_, err := clientInstance.AppendToStream(context.Background(), streamID, opts, events[:10]...)
+
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
+			StreamState: kurrentdb.NoStream{},
+		}, events[:10]...)
 		require.NoError(t, err)
-		// create persistent stream connection with StreamRevision set to End
-		groupName := "Group 1"
-		err = clientInstance.CreatePersistentSubscription(
+
+		groupName := fixture.NewGroupId()
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.End{},
@@ -177,45 +164,39 @@ func persistentSubscription_ToExistingStream_StartFromEnd_EventsInItAndAppendEve
 		)
 		require.NoError(t, err)
 
-		// append 1 event to StreamsClient.AppendToStreamAsync(Stream, new StreamRevision(9), event[10])
-		opts.StreamState = kurrentdb.Revision(9)
-		_, err = clientInstance.AppendToStream(context.Background(), streamID, opts, events[10:]...)
+		_, err = client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
+			StreamState: kurrentdb.Revision(9),
+		}, events[10])
 		require.NoError(t, err)
 
-		// read one event
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
+		readConn, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 		require.NoError(t, err)
-		defer readConnectionClient.Close()
+		defer readConn.Close()
 
-		readEvent := readConnectionClient.Recv().EventAppeared.Event
-		require.NoError(t, err)
-		require.NotNil(t, readEvent)
-		// assert readEvent.EventNumber == stream StartFrom 10
-		// assert readEvent.ID == events[10].EventID
-		require.EqualValues(t, 10, readEvent.OriginalEvent().EventNumber)
+		recv := readConn.Recv()
+		require.NotNil(t, t, recv.EventAppeared, "EventAppeared should not be nil")
+		readEvent := recv.EventAppeared.Event
 		require.Equal(t, events[10].EventID, readEvent.OriginalEvent().EventID)
-	}
-}
+		require.EqualValues(t, 10, readEvent.OriginalEvent().EventNumber)
+	})
 
-func persistentSubscription_ToExistingStream_StartFromEnd_EventsInIt(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		// create 10 events
-		events := testCreateEvents(10)
-		// append 10 events to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, events[:10]);
-		streamID := NAME_GENERATOR.Generate()
-		// append events to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, Events);
-		opts := kurrentdb.AppendToStreamOptions{
-			StreamState: kurrentdb.NoStream{},
+	t.Run("ToExistingStream_StartFromEnd_EventsInIt", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		events := make([]kurrentdb.EventData, 10)
+		for i := 0; i < 10; i++ {
+			events[i] = fixture.CreateTestEvent()
 		}
 
-		_, err := clientInstance.AppendToStream(context.Background(), streamID, opts, events[:10]...)
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
+			StreamState: kurrentdb.NoStream{},
+		}, events...)
 		require.NoError(t, err)
-		// create persistent stream connection with StartFrom set to End
-		groupName := "Group 1"
-		err = clientInstance.CreatePersistentSubscription(
+
+		groupName := fixture.NewGroupId()
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.End{},
@@ -223,97 +204,81 @@ func persistentSubscription_ToExistingStream_StartFromEnd_EventsInIt(clientInsta
 		)
 		require.NoError(t, err)
 
-		ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			ctx, streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		readConn, err := client.SubscribeToPersistentSubscription(
+			ctx, streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 		require.NoError(t, err)
-		defer readConnectionClient.Close()
+		defer readConn.Close()
 
-		doneChannel := make(chan struct{})
+		done := make(chan struct{})
 		go func() {
-			event := readConnectionClient.Recv()
-
+			event := readConn.Recv()
 			if event.EventAppeared != nil {
-				doneChannel <- struct{}{}
+				done <- struct{}{}
 			}
 		}()
 
-		noEvents := false
-
-	waitLoop:
-		for {
-			select {
-			case <-ctx.Done():
-				noEvents = true
-				break waitLoop
-			case <-doneChannel:
-				noEvents = false
-				break waitLoop
-			}
+		select {
+		case <-ctx.Done():
+			// Expected no events
+		case <-done:
+			t.Fatal("Received unexpected event")
 		}
+	})
 
-		require.True(t, noEvents)
-		cancelFunc()
-	}
-}
-
-func persistentSubscription_ToNonExistingStream_StartFromTwo_AppendEventsAfterwards(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		// create 3 events
-		events := testCreateEvents(4)
-		// create persistent stream connection with StartFrom set to Position(2)
-		streamID := NAME_GENERATOR.Generate()
-		groupName := "Group 1"
-		err := clientInstance.CreatePersistentSubscription(
+	t.Run("ToNonExistingStream_StartFromTwo_AppendEventsAfterwards", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		groupName := fixture.NewGroupId()
+		err := client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.Revision(2),
 			},
 		)
 		require.NoError(t, err)
-		// append 3 event to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, events)
-		opts := kurrentdb.AppendToStreamOptions{
-			StreamState: kurrentdb.NoStream{},
+
+		events := make([]kurrentdb.EventData, 4)
+		for i := 0; i < 4; i++ {
+			events[i] = fixture.CreateTestEvent()
 		}
-		_, err = clientInstance.AppendToStream(context.Background(), streamID, opts, events...)
-		require.NoError(t, err)
-		// read one event
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
-		require.NoError(t, err)
-		defer readConnectionClient.Close()
 
-		readEvent := readConnectionClient.Recv().EventAppeared.Event
+		_, err = client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
+			StreamState: kurrentdb.NoStream{},
+		}, events...)
 		require.NoError(t, err)
-		require.NotNil(t, readEvent)
 
-		// assert readEvent.EventNumber == stream StartFrom 2
-		// assert readEvent.ID == events[2].EventID
-		require.EqualValues(t, 2, readEvent.OriginalEvent().EventNumber)
+		readConn, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
+		require.NoError(t, err)
+		defer readConn.Close()
+
+		recv := readConn.Recv()
+		require.NotNil(t, t, recv.EventAppeared, "EventAppeared should not be nil")
+		readEvent := recv.EventAppeared.Event
 		require.Equal(t, events[2].EventID, readEvent.OriginalEvent().EventID)
-	}
-}
+		require.EqualValues(t, 2, readEvent.OriginalEvent().EventNumber)
+	})
 
-func persistentSubscription_ToExistingStream_StartFrom10_EventsInItAppendEventsAfterwards(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		// create 11 events
-		events := testCreateEvents(11)
-
-		// append 10 events to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, events[:10]);
-		opts := kurrentdb.AppendToStreamOptions{
-			StreamState: kurrentdb.NoStream{},
+	t.Run("ToExistingStream_StartFrom10_EventsInItAppendEventsAfterwards", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		events := make([]kurrentdb.EventData, 11)
+		for i := 0; i < 11; i++ {
+			events[i] = fixture.CreateTestEvent()
 		}
-		streamID := NAME_GENERATOR.Generate()
-		_, err := clientInstance.AppendToStream(context.Background(), streamID, opts, events[:10]...)
+
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
+			StreamState: kurrentdb.NoStream{},
+		}, events[:10]...)
 		require.NoError(t, err)
 
-		// create persistent stream connection with start StartFrom set to Position(10)
-		groupName := "Group 1"
-		err = clientInstance.CreatePersistentSubscription(
+		groupName := fixture.NewGroupId()
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.Revision(10),
@@ -321,49 +286,39 @@ func persistentSubscription_ToExistingStream_StartFrom10_EventsInItAppendEventsA
 		)
 		require.NoError(t, err)
 
-		// append 1 event to StreamsClient.AppendToStreamAsync(Stream, StreamRevision(9), events[10:)
-		opts = kurrentdb.AppendToStreamOptions{
+		_, err = client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
 			StreamState: kurrentdb.Revision(9),
-		}
-		_, err = clientInstance.AppendToStream(context.Background(), streamID, opts, events[10:]...)
+		}, events[10])
 		require.NoError(t, err)
 
-		// read one event
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
+		readConn, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 		require.NoError(t, err)
-		defer readConnectionClient.Close()
+		defer readConn.Close()
 
-		readEvent := readConnectionClient.Recv().EventAppeared.Event
-		require.NoError(t, err)
-		require.NotNil(t, readEvent)
-
-		// assert readEvent.EventNumber == stream StartFrom 10
-		// assert readEvent.ID == events[10].EventID
-		require.EqualValues(t, 10, readEvent.OriginalEvent().EventNumber)
+		recv := readConn.Recv()
+		require.NotNil(t, t, recv.EventAppeared, "EventAppeared should not be nil")
+		readEvent := recv.EventAppeared.Event
 		require.Equal(t, events[10].EventID, readEvent.OriginalEvent().EventID)
-	}
-}
+		require.EqualValues(t, 10, readEvent.OriginalEvent().EventNumber)
+	})
 
-func persistentSubscription_ToExistingStream_StartFrom4_EventsInIt(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		// create 11 events
-		events := testCreateEvents(11)
-
-		// append 10 events to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, events[:10]);
-		opts := kurrentdb.AppendToStreamOptions{
-			StreamState: kurrentdb.NoStream{},
+	t.Run("ToExistingStream_StartFrom4_EventsInIt", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		events := make([]kurrentdb.EventData, 11)
+		for i := 0; i < 11; i++ {
+			events[i] = fixture.CreateTestEvent()
 		}
-		streamID := NAME_GENERATOR.Generate()
-		_, err := clientInstance.AppendToStream(context.Background(), streamID, opts, events[:10]...)
+
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
+			StreamState: kurrentdb.NoStream{},
+		}, events[:10]...)
 		require.NoError(t, err)
 
-		// create persistent stream connection with start StartFrom set to Position(4)
-		groupName := "Group 1"
-
-		err = clientInstance.CreatePersistentSubscription(
+		groupName := fixture.NewGroupId()
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.Revision(4),
@@ -371,48 +326,39 @@ func persistentSubscription_ToExistingStream_StartFrom4_EventsInIt(clientInstanc
 		)
 		require.NoError(t, err)
 
-		// append 1 event to StreamsClient.AppendToStreamAsync(Stream, StreamRevision(9), events)
-		opts = kurrentdb.AppendToStreamOptions{
+		_, err = client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
 			StreamState: kurrentdb.Revision(9),
-		}
-		_, err = clientInstance.AppendToStream(context.Background(), streamID, opts, events[10:]...)
+		}, events[10])
 		require.NoError(t, err)
 
-		// read one event
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
+		readConn, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 		require.NoError(t, err)
-		defer readConnectionClient.Close()
-		readEvent := readConnectionClient.Recv().EventAppeared.Event
-		require.NoError(t, err)
-		require.NotNil(t, readEvent)
+		defer readConn.Close()
 
-		// assert readEvent.EventNumber == stream StartFrom 4
-		// assert readEvent.ID == events[4].EventID
-		require.EqualValues(t, 4, readEvent.OriginalEvent().EventNumber)
+		recv := readConn.Recv()
+		require.NotNil(t, t, recv.EventAppeared, "EventAppeared should not be nil")
+		readEvent := recv.EventAppeared.Event
 		require.Equal(t, events[4].EventID, readEvent.OriginalEvent().EventID)
-	}
-}
+		require.EqualValues(t, 4, readEvent.OriginalEvent().EventNumber)
+	})
 
-func persistentSubscription_ToExistingStream_StartFromHigherRevisionThenEventsInStream_EventsInItAppendEventsAfterwards(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		// create 12 events
-		events := testCreateEvents(12)
-
-		// append 11 events to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, events[:11]);
-		// append 10 events to StreamsClient.AppendToStreamAsync(Stream, StreamState.NoStream, events[:10]);
-		streamID := NAME_GENERATOR.Generate()
-		opts := kurrentdb.AppendToStreamOptions{
-			StreamState: kurrentdb.NoStream{},
+	t.Run("ToExistingStream_StartFromHigherRevisionThenEventsInStream_EventsInItAppendEventsAfterwards", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		events := make([]kurrentdb.EventData, 12)
+		for i := 0; i < 12; i++ {
+			events[i] = fixture.CreateTestEvent()
 		}
-		_, err := clientInstance.AppendToStream(context.Background(), streamID, opts, events[:11]...)
+
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
+			StreamState: kurrentdb.NoStream{},
+		}, events[:11]...)
 		require.NoError(t, err)
 
-		// create persistent stream connection with start StartFrom set to Position(11)
-		groupName := "Group 1"
-		err = clientInstance.CreatePersistentSubscription(
+		groupName := fixture.NewGroupId()
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.Revision(11),
@@ -420,79 +366,70 @@ func persistentSubscription_ToExistingStream_StartFromHigherRevisionThenEventsIn
 		)
 		require.NoError(t, err)
 
-		// append event to StreamsClient.AppendToStreamAsync(Stream, StreamRevision(10), events[11:])
-		opts = kurrentdb.AppendToStreamOptions{
+		_, err = client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{
 			StreamState: kurrentdb.Revision(10),
-		}
-
-		_, err = clientInstance.AppendToStream(context.Background(), streamID, opts, events[11])
+		}, events[11])
 		require.NoError(t, err)
 
-		// read one event
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
+		readConn, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
 		require.NoError(t, err)
-		readEvent := readConnectionClient.Recv().EventAppeared.Event
-		require.NoError(t, err)
-		defer readConnectionClient.Close()
-		require.NotNil(t, readEvent)
+		defer readConn.Close()
 
-		// assert readEvent.EventNumber == stream StartFrom 11
-		// assert readEvent.ID == events[11].EventID
-		require.EqualValues(t, 11, readEvent.OriginalEvent().EventNumber)
+		recv := readConn.Recv()
+		require.NotNil(t, t, recv.EventAppeared, "EventAppeared should not be nil")
+		readEvent := recv.EventAppeared.Event
 		require.Equal(t, events[11].EventID, readEvent.OriginalEvent().EventID)
-	}
-}
+		require.EqualValues(t, 11, readEvent.OriginalEvent().EventNumber)
+	})
 
-func persistentSubscription_ReadExistingStream_NackToReceiveNewEvents(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
-		firstEvent := createTestEvent()
-		secondEvent := createTestEvent()
-		thirdEvent := createTestEvent()
+	t.Run("ReadExistingStream_NackToReceiveNewEvents", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		firstEvent := fixture.CreateTestEvent()
+		secondEvent := fixture.CreateTestEvent()
+		thirdEvent := fixture.CreateTestEvent()
 		events := []kurrentdb.EventData{firstEvent, secondEvent, thirdEvent}
-		pushEventsToStream(t, clientInstance, streamID, events)
 
-		groupName := "Group 1"
-		err := clientInstance.CreatePersistentSubscription(
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{}, events...)
+		require.NoError(t, err)
+
+		groupName := fixture.NewGroupId()
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			groupName,
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				StartFrom: kurrentdb.Start{},
 			},
 		)
+		require.NoError(t, err)
 
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{
+		readConn, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{
 				BufferSize: 2,
 			})
 		require.NoError(t, err)
-		defer readConnectionClient.Close()
+		defer readConn.Close()
 
-		firstReadEvent := readConnectionClient.Recv().EventAppeared.Event
-		require.NoError(t, err)
-		require.NotNil(t, firstReadEvent)
+		firstRead := readConn.Recv().EventAppeared.Event
+		require.NotNil(t, firstRead)
+		require.Equal(t, firstEvent.EventID, firstRead.OriginalEvent().EventID)
 
-		secondReadEvent := readConnectionClient.Recv().EventAppeared.Event
-		require.NoError(t, err)
-		require.NotNil(t, secondReadEvent)
+		secondRead := readConn.Recv().EventAppeared.Event
+		require.NotNil(t, secondRead)
+		require.Equal(t, secondEvent.EventID, secondRead.OriginalEvent().EventID)
 
-		// since buffer size is two, after reading two outstanding messages
-		// we must acknowledge a message in order to receive third one
-		err = readConnectionClient.Nack("test reason", kurrentdb.NackActionPark, firstReadEvent)
+		err = readConn.Nack("test reason", kurrentdb.NackActionPark, firstRead)
 		require.NoError(t, err)
 
-		thirdReadEvent := readConnectionClient.Recv()
-		require.NoError(t, err)
-		require.NotNil(t, thirdReadEvent)
-	}
-}
+		thirdRead := readConn.Recv()
+		require.NotNil(t, thirdRead.EventAppeared)
+		require.Equal(t, thirdEvent.EventID, thirdRead.EventAppeared.Event.OriginalEvent().EventID)
+	})
 
-func persistentSubscriptionToAll_Read(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		groupName := "Group 1"
-		err := clientInstance.CreatePersistentSubscriptionToAll(
+	t.Run("persistentSubscriptionToAll_Read", func(t *testing.T) {
+		groupName := fixture.NewGroupId()
+		err := client.CreatePersistentSubscriptionToAll(
 			context.Background(),
 			groupName,
 			kurrentdb.PersistentAllSubscriptionOptions{
@@ -501,14 +438,14 @@ func persistentSubscriptionToAll_Read(clientInstance *kurrentdb.Client) TestCall
 		)
 
 		if err, ok := kurrentdb.FromError(err); !ok {
-			if err.Code() == kurrentdb.ErrorCodeUnsupportedFeature && IsESDBVersion20() {
+			if err.Code() == kurrentdb.ErrorCodeUnsupportedFeature && fixture.IsKurrentDbVersion20() {
 				t.Skip()
 			}
 		}
 
 		require.NoError(t, err)
 
-		readConnectionClient, err := clientInstance.SubscribeToPersistentSubscriptionToAll(
+		readConnectionClient, err := client.SubscribeToPersistentSubscriptionToAll(
 			context.Background(), groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{
 				BufferSize: 2,
 			},
@@ -534,14 +471,5 @@ func persistentSubscriptionToAll_Read(clientInstance *kurrentdb.Client) TestCall
 		require.NotNil(t, thirdReadEvent)
 		err = readConnectionClient.Ack(thirdReadEvent.EventAppeared.Event)
 		require.NoError(t, err)
-	}
-}
-
-func testCreateEvents(count uint32) []kurrentdb.EventData {
-	result := make([]kurrentdb.EventData, count)
-	var i uint32 = 0
-	for ; i < count; i++ {
-		result[i] = createTestEvent()
-	}
-	return result
+	})
 }

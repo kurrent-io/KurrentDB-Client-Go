@@ -6,59 +6,101 @@
   </picture>
 </a>
 
-# KurrentDB Client SDK for Golang [![Actions Status](https://github.com/kurrent-io/KurrentDB-Client-Go/workflows/CI/badge.svg?branch=main)](https://github.com/eventstore/EventStore-Client-Go/actions)
+# KurrentDB Go Client
 
-KurrentDB is the event-native database, where business events are immutably stored and streamed. Designed for event-sourced, event-driven, and microservices architectures.
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/kurrent-io/KurrentDB-Client-Go)](https://pkg.go.dev/github.com/kurrent-io/KurrentDB-Client-Go)
+[![CI](https://github.com/kurrent-io/KurrentDB-Client-Go/actions/workflows/ci.yml/badge.svg)](https://github.com/kurrent-io/KurrentDB-Client-Go/actions/workflows/ci.yml)
 
-This repository contains an [KurrentDB][kurrent] Client SDK written in Go.
+KurrentDB is the event-native database, where business events are immutably stored and streamed. Designed for
+event-sourced, event-driven, and microservices architectures.
 
-### Setup dependencies
-Testing requires [Docker] and [Docker Compose] to be installed.
+"KurrentDB Go Client" is the client for talking to [KurrentDB](https://kurrent.io/).
 
-## Build the project
+The fastest way to add this client to a project is to run `go get github.com/kurrent-io/KurrentDB-Client-Go@latest` with
+go, See [INSTALL.md](/INSTALL.md) for detailed installation instructions and troubleshooting.
 
-You need [make] to be installed (available on all OSes). On Windows, you need `Powershell`. The version that comes standard with Windows is enough. On a Unix system, any bash
-compatible shell should work.
+### Documentation
+
+* [API Reference](https://pkg.go.dev/github.com/kurrent.io/KurrentDB-Client-Go?tab=doc)
+* [Samples](https://github.com/kurrent-io/KurrentDB-Client-Go/tree/main/samples)
+
+## Communities
+
+[Join our global community](https://www.kurrent.io/community) of developers.
+
+- [Discuss](https://discuss.kurrent.io/)
+- [Discord (Kurrent)](https://discord.gg/Phn9pmCw3t)
+- [Discord (ddd-cqrs-es)](https://discord.com/invite/sEZGSHNNbH)
+
+## Contributing
+
+Development is done on the `main` branch.
+We attempt to do our best to ensure that the history remains clean and to do so, we generally ask contributors to squash
+their commits into a set or single logical commit.
+
+- [Create an issue](https://github.com/kurrent-io/KurrentDB-Client-Go/issues)
+- [Documentation](https://docs.kurrent.io/)
+- [Contributing guide](https://github.com/kurrent-io/KurrentDB-Client-Go/blob/main/CONTRIBUTING.md)
+
+## Building the client
+
+The client is built using the [Go](https://golang.org/) programming language. To build the client, you need to have Go
+installed on your machine. You can download it from the official Go website.
+Once you have Go installed, you can build the client by running the following command in the root directory of the
+project:
 
 ```bash
 make build
 ```
 
-To also regenerate protobuf and gRPC files while building
+The build scripts: `build.sh` and `build.ps1` are also available for Linux and Windows respectively to simplify the
+build process.
+
+### Running the tests
+
+Testing requires [Docker](https://www.docker.com/) and [Docker Compose](https://www.docker.com/) to be installed.
+
+Start all required KurrentDB services using the provided `docker-compose` configuration:
 
 ```bash
-make generate-protos-and-build
+make start-kurrentdb
 ```
 
-## Run tests
+To stop the services, you can run:
+
+```bash
+make stop-kurrentdb
+```
+
+You can launch the tests as follows:
 
 ```
 make test
 ```
 
-By default the tests use `docker.eventstore.com/eventstore-ce:ci`. To override this, set the `EVENTSTORE_DOCKER_TAG` environment variable to the tag you wish to use:
+Alternatively, you can run the tests using the `go test` command:
 
-```shell
-export EVENTSTORE_DOCKER_TAG="21.10.0-focal"
-make test
+```bash
+go test ./...
 ```
 
-## Communities
+By default the tests use `docker.eventstore.com/eventstore-ce/eventstoredb-ce:latest`. If you want to run the tests with
+a specific Docker image, you can set the following environment variables:
 
-- [Discuss](https://discuss.eventstore.com/)
-- [Discord (Kurrent)](https://discord.gg/Phn9pmCw3t)
+For example, to use `docker.kurrent.io/kurrent-staging/kurrentdb:ci`, you would set:
 
-## Security
+| Variable Name                | Value                             |
+|------------------------------|-----------------------------------|
+| `EVENTSTORE_DOCKER_REGISTRY` | docker.kurrent.io/kurrent-staging |
+| `EVENTSTORE_DOCKER_IMAGE`    | kurrentdb                         |
+| `EVENTSTORE_DOCKER_TAG`      | ci                                |
 
-If you find a vulnerability in our software, please contact us. You can find how to reach out us and report it at https://www.eventstore.com/security#security
-Thank you very much for supporting our software.
+These variables combine to form the complete image reference: `docker.kurrent.io/kurrent-staging/kurrentdb:ci`
 
-## Contributing
+## More resources
 
-All contributions to the SDK are made via GitHub Pull Requests, and must be licensed under the Apache 2.0 license.
-
-[docker]: https://www.docker.com/
-[docker compose]: https://www.docker.com/
-
-[kurrent]: https://kurrent.io
-[make]: https://www.gnu.org/software/make/
+- [Release notes](https://kurrent.io/blog/release-notes)
+- [Beginners Guide to Event Sourcing](https://kurrent.io/event-sourcing)
+- [Articles](https://kurrent.io/blog)
+- [Webinars](https://kurrent.io/webinars)
+- [Contact us](https://kurrent.io/contact)

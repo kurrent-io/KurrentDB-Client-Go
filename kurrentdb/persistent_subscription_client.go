@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/persistent"
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/shared"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/persistent"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )

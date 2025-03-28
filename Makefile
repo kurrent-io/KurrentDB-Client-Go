@@ -6,7 +6,9 @@ help:
 OS := $(shell uname)
 
 GENERATE_PROTOS_FLAG=
-CI_TARGET=
+EVENTSTORE_DOCKER_REGISTRY ?= docker.eventstore.com/eventstore-ce
+EVENTSTORE_DOCKER_IMAGE ?= eventstoredb-ce
+EVENTSTORE_DOCKER_TAG ?= latest
 
 .PHONY: build
 build: ## Build based on the OS.
@@ -28,40 +30,23 @@ else
 	$(MAKE) build GENERATE_PROTOS_FLAG=-generateProtos
 endif
 
-DOCKER_COMPOSE_CMD := $(shell command -v docker compose 2> /dev/null)
-ifeq ($(DOCKER_COMPOSE_CMD),)
-	DOCKER_COMPOSE_CMD := docker compose
-endif
+.PHONY: start-kurrentdb
+start-kurrentdb:
+	@docker --version
+	@docker compose up -d
+	@echo "Waiting for containers to be healthy..."
+	@until [ "$$(docker inspect -f '{{.State.Health.Status}}' $$(docker ps -q) | grep -c healthy)" -eq "$$(docker ps -q | wc -l)" ]; do \
+		printf "."; \
+		sleep 2; \
+	done; \
+	echo ""; \
+	echo "✅ All containers are healthy!"
+	@docker compose ps
 
-.PHONY: singleNode
-singleNode: ## Run tests against a single node.
-	@EVENTSTORE_INSECURE=true go test -count=1 -v ./kurrentdb -run 'TestStreams|TestPersistentSubscriptions|TestExpectations|TestProjections'
-
-.PHONY: secureNode
-secureNode: ## Run tests against a secure node.
-	@$(DOCKER_COMPOSE_CMD) down -v
-	@$(DOCKER_COMPOSE_CMD) pull
-	@$(DOCKER_COMPOSE_CMD) up -d
-	@EVENTSTORE_INSECURE=false go test -v ./kurrentdb -run 'TestStreams|TestPersistentSubscriptions|TestProjections'
-	@$(DOCKER_COMPOSE_CMD) down
-
-.PHONY: clusterNode
-clusterNode: ## Run tests against a cluster node.
-	@$(DOCKER_COMPOSE_CMD) -f cluster-docker-compose.yml down --remove-orphans -v
-	@$(DOCKER_COMPOSE_CMD) -f cluster-docker-compose.yml pull
-	@$(DOCKER_COMPOSE_CMD) -f cluster-docker-compose.yml up -d
-	@echo "Waiting for services to be fully ready..."
-	@sleep 5
-	@EVENTSTORE_INSECURE=false CLUSTER=true go test -count=1 -v ./kurrentdb -run 'TestStreams|TestPersistentSubscriptions|TestProjections|TestClusterRebalance'
-	@$(DOCKER_COMPOSE_CMD) -f cluster-docker-compose.yml down --remove-orphans
-
-.PHONY: misc
-misc: ## Run tests that don't need a server to run.
-	go test -v ./kurrentdb -run TestMisc
+.PHONY: stop-kurrentdb
+stop-kurrentdb:
+	@docker compose down -v --remove-orphans
 
 .PHONY: test
-test: singleNode secureNode clusterNode misc ## Run all tests.
-
-.PHONY: ci
-ci: ## Run tests in Github Actions setting.
-	go test -v ./kurrentdb -run "$(CI_TARGET)"
+test: ## Run tests
+	go test --count=1 -v ./kurrentdb

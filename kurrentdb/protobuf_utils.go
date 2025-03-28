@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/persistent"
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/shared"
-	api "github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/streams"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/persistent"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
+	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams"
 )
 
 type SubscriptionFilterOptions struct {

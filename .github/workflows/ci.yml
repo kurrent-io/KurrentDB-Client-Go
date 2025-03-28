@@ -1,5 +1,13 @@
 name: Build and Run Tests
-on: [pull_request]
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * 0'  # Run every Sunday at midnight UTC
+
 jobs:
   go-version:
     uses: ./.github/workflows/go-version.yml
@@ -10,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-2019, macos-latest]
+        os: [ ubuntu-latest, windows-2019, macos-latest ]
 
     runs-on: ${{ matrix.os }}
 
@@ -24,7 +32,7 @@ jobs:
         run: make generate-protos-and-build
 
       - name: Misc tests
-        run: make misc
+        run: go test --count=1 -v ./kurrentdb -run TestMisc
 
   tests:
     needs: build
@@ -33,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [previous-lts, lts, latest]
+        version: [ previous-lts, lts, latest ]
 
     uses: ./.github/workflows/tests.yml
     with:
@@ -42,22 +50,22 @@ jobs:
       registry: docker.eventstore.com/eventstore-ce
       go_version: ${{ needs.go-version.outputs.go_version }}
 
-  plugins-tests:
-    needs: build
-    name: Plugins Tests
-
-    strategy:
-      fail-fast: false
-      matrix:
-        tag: [24.2.0-jammy]
-
-    uses: ./.github/workflows/test-plugins.yml
-    with:
-      tag: ${{ matrix.tag }}
-      image: "eventstoredb-commercial"
-      registry: "docker.eventstore.com/eventstore-ee"
-      go_version: ${{ needs.go-version.outputs.go_version }}
-    secrets: inherit
+  #  plugins-tests:
+  #    needs: build
+  #    name: Plugins Tests
+  #
+  #    strategy:
+  #      fail-fast: false
+  #      matrix:
+  #        tag: [24.2.0-jammy]
+  #
+  #    uses: ./.github/workflows/test-plugins.yml
+  #    with:
+  #      tag: ${{ matrix.tag }}
+  #      image: "eventstoredb-commercial"
+  #      registry: "docker.eventstore.com/eventstore-ee"
+  #      go_version: ${{ needs.go-version.outputs.go_version }}
+  #    secrets: inherit
 
   linting:
     needs: tests

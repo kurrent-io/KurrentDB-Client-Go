@@ -20,34 +20,9 @@ on:
         type: string
 
 jobs:
-  single_node:
-    name: Single node
-
-    strategy:
-      fail-fast: false
-      matrix:
-        test: [Streams, PersistentSubscriptions, Expectations, Projections]
-
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ inputs.go_version }}
-
-      - name: Generate certificates
-        run: docker compose --file docker-compose.yml up
-
-      - name: Run Go Tests
-        run: make ci CI_TARGET=Test${{ matrix.test }}
-        env:
-          EVENTSTORE_DOCKER_TAG: ${{ inputs.tag }}
-          EVENTSTORE_DOCKER_REGISTRY: ${{ inputs.registry }}
-          EVENTSTORE_DOCKER_IMAGE: ${{ inputs.image }}
-          EVENTSTORE_INSECURE: true
-
-  secure:
-    name: Secure
+  test:
+    name: Test
+    timeout-minutes: 10
 
     strategy:
       fail-fast: false
@@ -61,47 +36,12 @@ jobs:
         with:
           go-version: ${{ inputs.go_version }}
 
-      - name: Generate certificates
-        run: docker compose --file docker-compose.yml up
-
-      - name: Run Go Tests
-        run: make ci CI_TARGET=Test${{ matrix.test }}
-
-        env:
-          EVENTSTORE_DOCKER_TAG: ${{ inputs.tag }}
-          EVENTSTORE_DOCKER_REGISTRY: ${{ inputs.registry }}
-          EVENTSTORE_DOCKER_IMAGE: ${{ inputs.image }}
-          EVENTSTORE_INSECURE: false
-
-  cluster:
-    name: Cluster
-
-    strategy:
-      fail-fast: false
-      matrix:
-        test: [Streams, PersistentSubscriptions, Projections]
-
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ inputs.go_version }}
-
-      - name: Set up cluster with Docker Compose
-        run: |
-          docker compose -f cluster-docker-compose.yml up -d
+      - name: Start KurrentDB clusters, insecure and secure node
+        run: make start-kurrentdb
         env:
           EVENTSTORE_DOCKER_TAG: ${{ inputs.tag }}
           EVENTSTORE_DOCKER_REGISTRY: ${{ inputs.registry }}
           EVENTSTORE_DOCKER_IMAGE: ${{ inputs.image }}
 
       - name: Run Go Tests
-        run: make ci CI_TARGET=Test${{ matrix.test }}
-        env:
-          EVENTSTORE_INSECURE: false
-          CLUSTER: true
-
-      - name: Shutdown cluster
-        run: docker compose -f cluster-docker-compose.yml down
-        if: always()
+        run: go test --count=1 -v ./kurrentdb -run Test${{ matrix.test }}

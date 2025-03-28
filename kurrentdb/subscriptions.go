@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	api "github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/streams"
+	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams"
 )
 
 // Subscription is a subscription's handle.

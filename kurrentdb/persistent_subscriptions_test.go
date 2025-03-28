@@ -7,69 +7,53 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func PersistentSubTests(t *testing.T, emptyDBClient *kurrentdb.Client, populatedDBClient *kurrentdb.Client) {
-	t.Run("PersistentSubTests", func(t *testing.T) {
-		t.Run("createPersistentStreamSubscription", createPersistentStreamSubscription(emptyDBClient))
-		t.Run("createPersistentStreamSubscription_MessageTimeoutZero", createPersistentStreamSubscription_MessageTimeoutZero(emptyDBClient))
-		t.Run("createPersistentStreamSubscription_StreamNotExits", createPersistentStreamSubscription_StreamNotExits(emptyDBClient))
-		t.Run("createPersistentStreamSubscription_FailsIfAlreadyExists", createPersistentStreamSubscription_FailsIfAlreadyExists(emptyDBClient))
-		t.Run("createPersistentStreamSubscription_AfterDeleting", createPersistentStreamSubscription_AfterDeleting(emptyDBClient))
-		t.Run("updatePersistentStreamSubscription", updatePersistentStreamSubscription(emptyDBClient))
-		t.Run("updatePersistentStreamSubscription_ErrIfSubscriptionDoesNotExist", updatePersistentStreamSubscription_ErrIfSubscriptionDoesNotExist(emptyDBClient))
-		t.Run("deletePersistentStreamSubscription", deletePersistentStreamSubscription(emptyDBClient))
-		t.Run("deletePersistentSubscription_ErrIfSubscriptionDoesNotExist", deletePersistentSubscription_ErrIfSubscriptionDoesNotExist(emptyDBClient))
-		t.Run("testPersistentSubscriptionClosing", testPersistentSubscriptionClosing(populatedDBClient))
-		t.Run("persistentAllCreate", persistentAllCreate(emptyDBClient))
-		t.Run("persistentAllUpdate", persistentAllUpdate(emptyDBClient))
-		t.Run("persistentAllDelete", persistentAllDelete(emptyDBClient))
-		t.Run("persistentListAllSubs", persistentListAllSubs(emptyDBClient))
-		t.Run("persistentListAllSubsWithCredentialsOverride", persistentListAllSubsWithCredentialsOverride(emptyDBClient))
-		t.Run("persistentReplayParkedMessages", persistentReplayParkedMessages(emptyDBClient))
-		t.Run("persistentReplayParkedMessagesWithCredentialsOverride", persistentReplayParkedMessagesWithCredentialsOverride(emptyDBClient))
-		t.Run("persistentReplayParkedMessagesToAll", persistentReplayParkedMessagesToAll(emptyDBClient))
-		t.Run("persistentListSubsForStream", persistentListSubsForStream(emptyDBClient))
-		t.Run("persistentListSubsToAll", persistentListSubsToAll(emptyDBClient))
-		t.Run("persistentGetInfo", persistentGetInfo(emptyDBClient))
-		t.Run("persistentGetInfoWithCredentialsOverride", persistentGetInfoWithCredentialsOverride(emptyDBClient))
-		t.Run("persistentGetInfoToAll", persistentGetInfoToAll(emptyDBClient))
-		t.Run("persistentGetInfoEncoding", persistentGetInfoEncoding(emptyDBClient))
-		t.Run("persistentRestartSubsystem", persistentRestartSubsystem(emptyDBClient))
+func TestPersistentSub(t *testing.T) {
+	t.Run("cluster", func(t *testing.T) {
+		fixture := NewSecureClusterClientFixture(t)
+		defer fixture.Close(t)
+		runPersistentSubscriptionsTests(t, fixture)
+	})
+
+	t.Run("singleNode", func(t *testing.T) {
+		fixture := NewSecureSingleNodeClientFixture(t)
+		defer fixture.Close(t)
+		runPersistentSubscriptionsTests(t, fixture)
 	})
 }
 
-func createPersistentStreamSubscription(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
-		pushEventToStream(t, clientInstance, streamID)
+func runPersistentSubscriptionsTests(t *testing.T, fixture *ClientFixture) {
+	client := fixture.Client()
 
-		err := clientInstance.CreatePersistentSubscription(
+	t.Run("createPersistentStreamSubscription", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
+
+		err := client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.PersistentStreamSubscriptionOptions{},
 		)
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func createPersistentStreamSubscription_MessageTimeoutZero(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
-		pushEventToStream(t, clientInstance, streamID)
+	t.Run("createPersistentStreamSubscription_MessageTimeoutZero", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
 
 		settings := kurrentdb.SubscriptionSettingsDefault()
 		settings.MessageTimeout = 0
 
-		err := clientInstance.CreatePersistentSubscription(
+		err := client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.PersistentStreamSubscriptionOptions{
 				Settings: &settings,
@@ -77,41 +61,38 @@ func createPersistentStreamSubscription_MessageTimeoutZero(clientInstance *kurre
 		)
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func createPersistentStreamSubscription_StreamNotExits(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
+	t.Run("createPersistentStreamSubscription_StreamNotExits", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
 
-		err := clientInstance.CreatePersistentSubscription(
+		err := client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.PersistentStreamSubscriptionOptions{},
 		)
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func createPersistentStreamSubscription_FailsIfAlreadyExists(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
-		pushEventToStream(t, clientInstance, streamID)
+	t.Run("createPersistentStreamSubscription_FailsIfAlreadyExists", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
 
-		err := clientInstance.CreatePersistentSubscription(
+		err := client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.PersistentStreamSubscriptionOptions{},
 		)
 
 		require.NoError(t, err)
 
-		err = clientInstance.CreatePersistentSubscription(
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.PersistentStreamSubscriptionOptions{},
 		)
@@ -119,46 +100,42 @@ func createPersistentStreamSubscription_FailsIfAlreadyExists(clientInstance *kur
 		esdbErr, ok := kurrentdb.FromError(err)
 		assert.False(t, ok)
 		assert.Equal(t, esdbErr.Code(), kurrentdb.ErrorCodeResourceAlreadyExists)
-	}
-}
+	})
 
-func createPersistentStreamSubscription_AfterDeleting(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
-		pushEventToStream(t, clientInstance, streamID)
+	t.Run("createPersistentStreamSubscription_AfterDeleting", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
 
-		err := clientInstance.CreatePersistentSubscription(
+		err := client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.PersistentStreamSubscriptionOptions{},
 		)
 
 		require.NoError(t, err)
 
-		err = clientInstance.DeletePersistentSubscription(context.Background(), streamID, "Group 1", kurrentdb.DeletePersistentSubscriptionOptions{})
+		err = client.DeletePersistentSubscription(context.Background(), streamId, "Group 1", kurrentdb.DeletePersistentSubscriptionOptions{})
 
 		require.NoError(t, err)
 
-		err = clientInstance.CreatePersistentSubscription(
+		err = client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.PersistentStreamSubscriptionOptions{},
 		)
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func updatePersistentStreamSubscription(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
-		pushEventToStream(t, clientInstance, streamID)
+	t.Run("updatePersistentStreamSubscription", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
 
-		err := clientInstance.CreatePersistentSubscription(
+		err := client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.PersistentStreamSubscriptionOptions{},
 		)
@@ -166,105 +143,80 @@ func updatePersistentStreamSubscription(clientInstance *kurrentdb.Client) TestCa
 		require.NoError(t, err)
 
 		settings := kurrentdb.SubscriptionSettingsDefault()
-		settings.HistoryBufferSize = settings.HistoryBufferSize + 1
+		settings.HistoryBufferSize++
 		settings.ConsumerStrategyName = kurrentdb.ConsumerStrategyDispatchToSingle
-		settings.MaxSubscriberCount = settings.MaxSubscriberCount + 1
-		settings.ReadBatchSize = settings.ReadBatchSize + 1
-		settings.CheckpointAfter = settings.CheckpointAfter + 1
-		settings.CheckpointUpperBound = settings.CheckpointUpperBound + 1
-		settings.CheckpointLowerBound = settings.CheckpointLowerBound + 1
-		settings.LiveBufferSize = settings.LiveBufferSize + 1
-		settings.MaxRetryCount = settings.MaxRetryCount + 1
-		settings.MessageTimeout = settings.MessageTimeout + 1
+		settings.MaxSubscriberCount++
+		settings.ReadBatchSize++
+		settings.CheckpointAfter++
+		settings.CheckpointUpperBound++
+		settings.CheckpointLowerBound++
+		settings.LiveBufferSize++
+		settings.MaxRetryCount++
+		settings.MessageTimeout++
 		settings.ExtraStatistics = !settings.ExtraStatistics
 		settings.ResolveLinkTos = !settings.ResolveLinkTos
 
-		err = clientInstance.UpdatePersistentSubscription(context.Background(), streamID, "Group 1", kurrentdb.PersistentStreamSubscriptionOptions{
+		err = client.UpdatePersistentSubscription(context.Background(), streamId, "Group 1", kurrentdb.PersistentStreamSubscriptionOptions{
 			Settings: &settings,
 		})
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func updatePersistentStreamSubscription_ErrIfSubscriptionDoesNotExist(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
+	t.Run("updatePersistentStreamSubscription_ErrIfSubscriptionDoesNotExist", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
 
-		err := clientInstance.UpdatePersistentSubscription(context.Background(), streamID, "Group 1", kurrentdb.PersistentStreamSubscriptionOptions{})
+		err := client.UpdatePersistentSubscription(context.Background(), streamId, "Group 1", kurrentdb.PersistentStreamSubscriptionOptions{})
 
 		require.Error(t, err)
-	}
-}
+	})
 
-func deletePersistentStreamSubscription(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
-		pushEventToStream(t, clientInstance, streamID)
+	t.Run("deletePersistentStreamSubscription", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
 
-		err := clientInstance.CreatePersistentSubscription(
+		err := client.CreatePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.PersistentStreamSubscriptionOptions{},
 		)
 
 		require.NoError(t, err)
 
-		err = clientInstance.DeletePersistentSubscription(
+		err = client.DeletePersistentSubscription(
 			context.Background(),
-			streamID,
+			streamId,
 			"Group 1",
 			kurrentdb.DeletePersistentSubscriptionOptions{},
 		)
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func deletePersistentSubscription_ErrIfSubscriptionDoesNotExist(clientInstance *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		err := clientInstance.DeletePersistentSubscription(
+	t.Run("deletePersistentSubscription_ErrIfSubscriptionDoesNotExist", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+
+		err := client.DeletePersistentSubscription(
 			context.Background(),
-			NAME_GENERATOR.Generate(),
+			streamId,
 			"a",
 			kurrentdb.DeletePersistentSubscriptionOptions{},
 		)
 
-		esdbErr, ok := kurrentdb.FromError(err)
+		kurrentDbError, ok := kurrentdb.FromError(err)
 		assert.False(t, ok)
-		assert.Equal(t, esdbErr.Code(), kurrentdb.ErrorCodeResourceNotFound)
-	}
-}
+		assert.Equal(t, kurrentDbError.Code(), kurrentdb.ErrorCodeResourceNotFound)
+	})
 
-func pushEventToStream(t *testing.T, clientInstance *kurrentdb.Client, streamID string) {
-	testEvent := createTestEvent()
-	pushEventsToStream(t, clientInstance, streamID, []kurrentdb.EventData{testEvent})
-}
+	t.Run("testPersistentSubscriptionClosing", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 20)
 
-func pushEventsToStream(t *testing.T,
-	clientInstance *kurrentdb.Client,
-	streamID string,
-	events []kurrentdb.EventData) {
-
-	opts := kurrentdb.AppendToStreamOptions{
-		StreamState: kurrentdb.NoStream{},
-	}
-	_, err := clientInstance.AppendToStream(context.Background(), streamID, opts, events...)
-
-	require.NoError(t, err)
-}
-
-func testPersistentSubscriptionClosing(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		if db == nil {
-			t.Skip()
-		}
-
-		streamID := "dataset20M-0"
 		groupName := "Group 1"
 
-		err := db.CreatePersistentSubscription(context.Background(), streamID, groupName, kurrentdb.PersistentStreamSubscriptionOptions{
+		err := client.CreatePersistentSubscription(context.Background(), streamId, groupName, kurrentdb.PersistentStreamSubscriptionOptions{
 			StartFrom: kurrentdb.Start{},
 		})
 
@@ -273,8 +225,8 @@ func testPersistentSubscriptionClosing(db *kurrentdb.Client) TestCall {
 		var receivedEvents sync.WaitGroup
 		var droppedEvent sync.WaitGroup
 
-		subscription, err := db.SubscribeToPersistentSubscription(
-			context.Background(), streamID, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{
+		subscription, err := client.SubscribeToPersistentSubscription(
+			context.Background(), streamId, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{
 				BufferSize: 2,
 			})
 
@@ -307,17 +259,15 @@ func testPersistentSubscriptionClosing(db *kurrentdb.Client) TestCall {
 		require.NoError(t, err)
 		receivedEvents.Add(10)
 		droppedEvent.Add(1)
-		timedOut := waitWithTimeout(&receivedEvents, time.Duration(5)*time.Second)
+		timedOut := fixture.WaitWithTimeout(&receivedEvents, 5*time.Second)
 		require.False(t, timedOut, "Timed out waiting for initial set of events")
 		subscription.Close()
-		timedOut = waitWithTimeout(&droppedEvent, time.Duration(5)*time.Second)
+		timedOut = fixture.WaitWithTimeout(&droppedEvent, 5*time.Second)
 		require.False(t, timedOut, "Timed out waiting for dropped event")
-	}
-}
+	})
 
-func persistentAllCreate(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		groupName := NAME_GENERATOR.Generate()
+	t.Run("persistentAllCreate", func(t *testing.T) {
+		groupName := fixture.NewGroupId()
 
 		err := client.CreatePersistentSubscriptionToAll(
 			context.Background(),
@@ -326,18 +276,16 @@ func persistentAllCreate(client *kurrentdb.Client) TestCall {
 		)
 
 		if err, ok := kurrentdb.FromError(err); !ok {
-			if err.Code() == kurrentdb.ErrorCodeUnsupportedFeature && IsESDBVersion20() {
+			if err.Code() == kurrentdb.ErrorCodeUnsupportedFeature && fixture.IsKurrentDbVersion20() {
 				t.Skip()
 			}
 		}
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func persistentAllUpdate(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		groupName := NAME_GENERATOR.Generate()
+	t.Run("persistentAllUpdate", func(t *testing.T) {
+		groupName := fixture.NewGroupId()
 
 		err := client.CreatePersistentSubscriptionToAll(
 			context.Background(),
@@ -346,7 +294,7 @@ func persistentAllUpdate(client *kurrentdb.Client) TestCall {
 		)
 
 		if err, ok := kurrentdb.FromError(err); !ok {
-			if err.Code() == kurrentdb.ErrorCodeUnsupportedFeature && IsESDBVersion20() {
+			if err.Code() == kurrentdb.ErrorCodeUnsupportedFeature && fixture.IsKurrentDbVersion20() {
 				t.Skip()
 			}
 		}
@@ -361,12 +309,10 @@ func persistentAllUpdate(client *kurrentdb.Client) TestCall {
 		})
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func persistentAllDelete(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		groupName := NAME_GENERATOR.Generate()
+	t.Run("persistentAllDelete", func(t *testing.T) {
+		groupName := fixture.NewGroupId()
 
 		err := client.CreatePersistentSubscriptionToAll(
 			context.Background(),
@@ -375,7 +321,7 @@ func persistentAllDelete(client *kurrentdb.Client) TestCall {
 		)
 
 		if err, ok := kurrentdb.FromError(err); !ok {
-			if err.Code() == kurrentdb.ErrorCodeUnsupportedFeature && IsESDBVersion20() {
+			if err.Code() == kurrentdb.ErrorCodeUnsupportedFeature && fixture.IsKurrentDbVersion20() {
 				t.Skip()
 			}
 		}
@@ -385,14 +331,12 @@ func persistentAllDelete(client *kurrentdb.Client) TestCall {
 		err = client.DeletePersistentSubscriptionToAll(context.Background(), groupName, kurrentdb.DeletePersistentSubscriptionOptions{})
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func persistentReplayParkedMessages(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		groupName := NAME_GENERATOR.Generate()
-		streamName := NAME_GENERATOR.Generate()
-		eventCount := 2
+	t.Run("persistentListAllSubs", func(t *testing.T) {
+		groupName := fixture.NewGroupId()
+		streamName := fixture.NewStreamId()
+		eventCount := uint32(2)
 
 		err := client.CreatePersistentSubscription(context.Background(), streamName, groupName, kurrentdb.PersistentStreamSubscriptionOptions{})
 
@@ -403,13 +347,11 @@ func persistentReplayParkedMessages(client *kurrentdb.Client) TestCall {
 
 		require.NoError(t, err)
 
-		events := testCreateEvents(uint32(eventCount))
-
-		_, err = client.AppendToStream(context.Background(), streamName, kurrentdb.AppendToStreamOptions{}, events...)
+		fixture.CreateTestEvents(streamName, eventCount)
 
 		require.NoError(t, err)
 
-		i := 0
+		i := uint32(0)
 		for i < eventCount {
 			event := sub.Recv()
 
@@ -424,7 +366,6 @@ func persistentReplayParkedMessages(client *kurrentdb.Client) TestCall {
 			}
 		}
 
-		// We let the server the time to park those events.
 		time.Sleep(5 * time.Second)
 
 		err = client.ReplayParkedMessages(context.Background(), streamName, groupName, kurrentdb.ReplayParkedMessagesOptions{})
@@ -447,65 +388,31 @@ func persistentReplayParkedMessages(client *kurrentdb.Client) TestCall {
 		}
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func persistentReplayParkedMessagesWithCredentialsOverride(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		groupName := NAME_GENERATOR.Generate()
-		streamName := NAME_GENERATOR.Generate()
-		eventCount := 2
+	t.Run("persistentListAllSubsWithCredentialsOverride", func(t *testing.T) {
+		groupName := fixture.NewGroupId()
+		streamName := fixture.NewStreamId()
 
 		err := client.CreatePersistentSubscription(context.Background(), streamName, groupName, kurrentdb.PersistentStreamSubscriptionOptions{})
 
 		require.NoError(t, err)
 
-		sub, err := client.SubscribeToPersistentSubscription(context.Background(), streamName, groupName, kurrentdb.SubscribeToPersistentSubscriptionOptions{})
-		defer sub.Close()
-
-		require.NoError(t, err)
-
-		events := testCreateEvents(uint32(eventCount))
-
-		_, err = client.AppendToStream(context.Background(), streamName, kurrentdb.AppendToStreamOptions{}, events...)
-
-		require.NoError(t, err)
-
-		i := 0
-		for i < eventCount {
-			event := sub.Recv()
-
-			if event.SubscriptionDropped != nil {
-				t.FailNow()
-			}
-
-			if event.EventAppeared != nil {
-				err = sub.Nack("because reasons", kurrentdb.NackActionPark, event.EventAppeared.Event)
-				require.NoError(t, err)
-				i++
-			}
-		}
-
-		// We let the server the time to park those events.
-		time.Sleep(5 * time.Second)
-
-		opts := kurrentdb.ReplayParkedMessagesOptions{
+		opts := kurrentdb.ListPersistentSubscriptionsOptions{
 			Authenticated: &kurrentdb.Credentials{
 				Login:    "admin",
 				Password: "changeit",
 			},
 		}
-		err = client.ReplayParkedMessages(context.Background(), streamName, groupName, opts)
+		_, err = client.ListAllPersistentSubscriptions(context.Background(), opts)
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func persistentReplayParkedMessagesToAll(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamName := NAME_GENERATOR.Generate()
-		groupName := NAME_GENERATOR.Generate()
-		eventCount := 2
+	t.Run("persistentReplayParkedMessages", func(t *testing.T) {
+		streamName := fixture.NewStreamId()
+		groupName := fixture.NewGroupId()
+		eventCount := uint32(2)
 
 		err := client.CreatePersistentSubscriptionToAll(context.Background(), groupName, kurrentdb.PersistentAllSubscriptionOptions{})
 
@@ -522,13 +429,11 @@ func persistentReplayParkedMessagesToAll(client *kurrentdb.Client) TestCall {
 
 		require.NoError(t, err)
 
-		events := testCreateEvents(uint32(eventCount))
-
-		_, err = client.AppendToStream(context.Background(), streamName, kurrentdb.AppendToStreamOptions{}, events...)
+		fixture.CreateTestEvents(streamName, eventCount)
 
 		require.NoError(t, err)
 
-		i := 0
+		i := uint32(0)
 		for i < eventCount {
 			event := sub.Recv()
 
@@ -548,7 +453,6 @@ func persistentReplayParkedMessagesToAll(client *kurrentdb.Client) TestCall {
 			}
 		}
 
-		// We let the server the time to park those events.
 		time.Sleep(5 * time.Second)
 
 		err = client.ReplayParkedMessagesToAll(context.Background(), groupName, kurrentdb.ReplayParkedMessagesOptions{})
@@ -574,72 +478,29 @@ func persistentReplayParkedMessagesToAll(client *kurrentdb.Client) TestCall {
 		}
 
 		require.NoError(t, err)
-	}
-}
+	})
 
-func persistentListAllSubs(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		groupName := NAME_GENERATOR.Generate()
-		streamName := NAME_GENERATOR.Generate()
+	t.Run("persistentReplayParkedMessagesWithCredentialsOverride", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
+	})
 
-		err := client.CreatePersistentSubscription(context.Background(), streamName, groupName, kurrentdb.PersistentStreamSubscriptionOptions{})
+	t.Run("persistentReplayParkedMessagesToAll", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 1)
+	})
 
-		require.NoError(t, err)
-
-		subs, err := client.ListAllPersistentSubscriptions(context.Background(), kurrentdb.ListPersistentSubscriptionsOptions{})
-
-		require.NoError(t, err)
-		require.NotNil(t, subs)
-		require.NotEmpty(t, subs)
-
-		found := false
-		for i := range subs {
-			if subs[i].EventSource == streamName && subs[i].GroupName == groupName {
-				found = true
-				break
-			}
-		}
-
-		require.True(t, found)
-	}
-}
-
-func persistentListAllSubsWithCredentialsOverride(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		groupName := NAME_GENERATOR.Generate()
-		streamName := NAME_GENERATOR.Generate()
-
-		err := client.CreatePersistentSubscription(context.Background(), streamName, groupName, kurrentdb.PersistentStreamSubscriptionOptions{})
-
-		require.NoError(t, err)
-
-		opts := kurrentdb.ListPersistentSubscriptionsOptions{
-			Authenticated: &kurrentdb.Credentials{
-				Login:    "admin",
-				Password: "changeit",
-			},
-		}
-		_, err = client.ListAllPersistentSubscriptions(context.Background(), opts)
-
-		require.NoError(t, err)
-	}
-}
-
-func persistentListSubsForStream(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamName := NAME_GENERATOR.Generate()
+	t.Run("persistentListSubsForStream", func(t *testing.T) {
+		streamName := fixture.NewStreamId()
 		groupNames := make(map[string]int)
-		var err error
 		count := 2
 
 		for i := 0; i < count; i++ {
-			name := NAME_GENERATOR.Generate()
-			err = client.CreatePersistentSubscription(context.Background(), streamName, name, kurrentdb.PersistentStreamSubscriptionOptions{})
+			name := fixture.NewGroupId()
+			err := client.CreatePersistentSubscription(context.Background(), streamName, name, kurrentdb.PersistentStreamSubscriptionOptions{})
 			require.NoError(t, err)
 			groupNames[name] = 0
 		}
-
-		require.NoError(t, err)
 
 		subs, err := client.ListPersistentSubscriptionsForStream(context.Background(), streamName, kurrentdb.ListPersistentSubscriptionsOptions{})
 
@@ -657,18 +518,15 @@ func persistentListSubsForStream(client *kurrentdb.Client) TestCall {
 		}
 
 		require.Equal(t, 2, found)
-	}
-}
+	})
 
-func persistentListSubsToAll(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
+	t.Run("persistentListSubsToAll", func(t *testing.T) {
 		groupNames := make(map[string]int)
-		var err error
 		count := 2
 
 		for i := 0; i < count; i++ {
-			name := NAME_GENERATOR.Generate()
-			err = client.CreatePersistentSubscriptionToAll(context.Background(), name, kurrentdb.PersistentAllSubscriptionOptions{})
+			name := fixture.NewGroupId()
+			err := client.CreatePersistentSubscriptionToAll(context.Background(), name, kurrentdb.PersistentAllSubscriptionOptions{})
 
 			if err, ok := kurrentdb.FromError(err); !ok {
 				if err.Code() == kurrentdb.ErrorCodeUnsupportedFeature {
@@ -679,8 +537,6 @@ func persistentListSubsToAll(client *kurrentdb.Client) TestCall {
 			require.NoError(t, err)
 			groupNames[name] = 0
 		}
-
-		require.NoError(t, err)
 
 		subs, err := client.ListPersistentSubscriptionsToAll(context.Background(), kurrentdb.ListPersistentSubscriptionsOptions{})
 
@@ -696,13 +552,11 @@ func persistentListSubsToAll(client *kurrentdb.Client) TestCall {
 		}
 
 		require.Equal(t, 2, found)
-	}
-}
+	})
 
-func persistentGetInfo(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamName := NAME_GENERATOR.Generate()
-		groupName := NAME_GENERATOR.Generate()
+	t.Run("persistentGetInfo", func(t *testing.T) {
+		streamName := fixture.NewStreamId()
+		groupName := fixture.NewGroupId()
 
 		setts := kurrentdb.SubscriptionSettingsDefault()
 		setts.CheckpointLowerBound = 1
@@ -711,7 +565,7 @@ func persistentGetInfo(client *kurrentdb.Client) TestCall {
 		var events []kurrentdb.EventData
 
 		for i := 0; i < 50; i++ {
-			events = append(events, createTestEvent())
+			events = append(events, fixture.CreateTestEvent())
 		}
 
 		_, err := client.AppendToStream(context.Background(), streamName, kurrentdb.AppendToStreamOptions{}, events...)
@@ -757,20 +611,18 @@ func persistentGetInfo(client *kurrentdb.Client) TestCall {
 
 		require.NoError(t, err)
 		receivedEvents.Add(1)
-		timedOut := waitWithTimeout(&receivedEvents, time.Duration(5)*time.Second)
+		timedOut := fixture.WaitWithTimeout(&receivedEvents, 5*time.Second)
 		require.False(t, timedOut, "Timed out waiting for initial set of events")
 		info, err := client.GetPersistentSubscriptionInfo(context.Background(), streamName, groupName, kurrentdb.GetPersistentSubscriptionOptions{})
 		require.NoError(t, err)
 		require.Equal(t, streamName, info.EventSource)
 		require.Equal(t, groupName, info.GroupName)
 		subscription.Close()
-	}
-}
+	})
 
-func persistentGetInfoWithCredentialsOverride(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamName := NAME_GENERATOR.Generate()
-		groupName := NAME_GENERATOR.Generate()
+	t.Run("persistentGetInfoWithCredentialsOverride", func(t *testing.T) {
+		streamName := fixture.NewStreamId()
+		groupName := fixture.NewGroupId()
 
 		err := client.CreatePersistentSubscription(context.Background(), streamName, groupName, kurrentdb.PersistentStreamSubscriptionOptions{})
 
@@ -788,12 +640,10 @@ func persistentGetInfoWithCredentialsOverride(client *kurrentdb.Client) TestCall
 
 		require.Equal(t, streamName, sub.EventSource)
 		require.Equal(t, groupName, sub.GroupName)
-	}
-}
+	})
 
-func persistentGetInfoToAll(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		groupName := NAME_GENERATOR.Generate()
+	t.Run("persistentGetInfoToAll", func(t *testing.T) {
+		groupName := fixture.NewGroupId()
 
 		err := client.CreatePersistentSubscriptionToAll(context.Background(), groupName, kurrentdb.PersistentAllSubscriptionOptions{})
 
@@ -810,13 +660,11 @@ func persistentGetInfoToAll(client *kurrentdb.Client) TestCall {
 		require.NoError(t, err)
 
 		require.Equal(t, groupName, sub.GroupName)
-	}
-}
+	})
 
-func persistentGetInfoEncoding(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamName := fmt.Sprintf("/%s/foo", NAME_GENERATOR.Generate())
-		groupName := fmt.Sprintf("/%s/foo", NAME_GENERATOR.Generate())
+	t.Run("persistentGetInfoEncoding", func(t *testing.T) {
+		streamName := fmt.Sprintf("/%s/foo", fixture.NewStreamId())
+		groupName := fmt.Sprintf("/%s/foo", fixture.NewGroupId())
 
 		err := client.CreatePersistentSubscription(context.Background(), streamName, groupName, kurrentdb.PersistentStreamSubscriptionOptions{})
 
@@ -828,12 +676,10 @@ func persistentGetInfoEncoding(client *kurrentdb.Client) TestCall {
 
 		require.Equal(t, streamName, sub.EventSource)
 		require.Equal(t, groupName, sub.GroupName)
-	}
-}
+	})
 
-func persistentRestartSubsystem(client *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
+	t.Run("persistentRestartSubsystem", func(t *testing.T) {
 		err := client.RestartPersistentSubscriptionSubsystem(context.Background(), kurrentdb.RestartPersistentSubscriptionSubsystemOptions{})
 		require.NoError(t, err)
-	}
+	})
 }

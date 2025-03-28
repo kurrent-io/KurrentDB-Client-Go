@@ -4,12 +4,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func UUIDParsingTests(t *testing.T) {
+func TestUUIDParsing(t *testing.T) {
 	t.Run("UUIDParsingTests", func(t *testing.T) {
 		expected := uuid.New()
 		most, least := kurrentdb.UUIDAsInt64(expected)

@@ -9,13 +9,13 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/gossip"
-	persistentProto "github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/persistent"
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/shared"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/gossip"
+	persistentProto "github.com/kurrent-io/KurrentDB-Client-Go/protos/persistent"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	api "github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/streams"
+	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams"
 )
 
 // Client Represents a client to a single node. A client instance maintains a full duplex communication to KurrentDB.

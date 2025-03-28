@@ -8,7 +8,7 @@ package projections
 
 import (
 	context "context"
-	shared "github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/shared"
+	shared "github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

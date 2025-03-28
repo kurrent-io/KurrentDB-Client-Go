@@ -9,63 +9,49 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TLSTests(t *testing.T, emptyDBContainer *Container) {
-	t.Run("TLSTests", func(t *testing.T) {
-		t.Run("Default", testTLSDefaults(emptyDBContainer))
-		t.Run("DefaultsWithCertificate", testTLSDefaultsWithCertificate(emptyDBContainer))
-		t.Run("WithoutCertificateAndVerify", testTLSWithoutCertificateAndVerify(emptyDBContainer))
-		t.Run("testTLSWithoutCertificate(", testTLSWithoutCertificate(emptyDBContainer))
-		t.Run("WithCertificate", testTLSWithCertificate(emptyDBContainer))
-		t.Run("WithCertificateFromAbsoluteFile", testTLSWithCertificateFromAbsoluteFile(emptyDBContainer))
-		t.Run("WithCertificateFromRelativeFile", testTLSWithCertificateFromRelativeFile(emptyDBContainer))
-		t.Run("WithInvalidCertificate", testTLSWithInvalidCertificate(emptyDBContainer))
+func TestTLS(t *testing.T) {
+	t.Run("Default", func(t *testing.T) {
+		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s", "localhost:2111,localhost:2112,localhost:2113"))
+		if err != nil {
+			t.Fatalf("Unexpected configuration error: %s", err.Error())
+		}
+
+		c, err := kurrentdb.NewClient(config)
+		if err != nil {
+			t.Fatalf("Unexpected error: %s", err.Error())
+		}
+		defer c.Close()
+
+		numberOfEventsToRead := 1
+		numberOfEvents := uint64(numberOfEventsToRead)
+		opts := kurrentdb.ReadAllOptions{
+			From:           kurrentdb.Start{},
+			Direction:      kurrentdb.Backwards,
+			ResolveLinkTos: true,
+		}
+
+		_, err = c.ReadAll(context.Background(), opts, numberOfEvents)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to verify certificate")
 	})
-}
 
-func testTLSDefaults(container *Container) TestCall {
-	return func(t *testing.T) {
-		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s", container.Endpoint))
+	t.Run("DefaultsWithCertificate", func(t *testing.T) {
+		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s", "localhost:2111,localhost:2112,localhost:2113"))
 		if err != nil {
 			t.Fatalf("Unexpected configuration error: %s", err.Error())
 		}
 
-		c, err := kurrentdb.NewClient(config)
+		b, err := os.ReadFile("../certs/ca/ca.crt")
 		if err != nil {
-			t.Fatalf("Unexpected error: %s", err.Error())
-		}
-		defer c.Close()
-
-		numberOfEventsToRead := 1
-		numberOfEvents := uint64(numberOfEventsToRead)
-		opts := kurrentdb.ReadAllOptions{
-			From:           kurrentdb.Start{},
-			Direction:      kurrentdb.Backwards,
-			ResolveLinkTos: true,
-		}
-
-		_, err = c.ReadAll(context.Background(), opts, numberOfEvents)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to verify certificate")
-	}
-}
-
-func testTLSDefaultsWithCertificate(container *Container) TestCall {
-	return func(t *testing.T) {
-		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s", container.Endpoint))
-		if err != nil {
-			t.Fatalf("Unexpected configuration error: %s", err.Error())
-		}
-
-		b, err := os.ReadFile("../certs/node/node.crt")
-		if err != nil {
-			t.Fatalf("failed to read node certificate ../certs/node/node.crt: %s", err.Error())
+			t.Fatalf("failed to read node certificate ../certs/ca/ca.crt: %s", err.Error())
 		}
 		cp := x509.NewCertPool()
 		if !cp.AppendCertsFromPEM(b) {
@@ -93,12 +79,10 @@ func testTLSDefaultsWithCertificate(container *Container) TestCall {
 		evt, err := stream.Recv()
 		require.Nil(t, evt)
 		require.True(t, errors.Is(err, io.EOF))
-	}
-}
+	})
 
-func testTLSWithoutCertificateAndVerify(container *Container) TestCall {
-	return func(t *testing.T) {
-		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=false", container.Endpoint))
+	t.Run("WithoutCertificateAndVerify", func(t *testing.T) {
+		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=false", "localhost:2111,localhost:2112,localhost:2113"))
 		if err != nil {
 			t.Fatalf("Unexpected configuration error: %s", err.Error())
 		}
@@ -124,12 +108,10 @@ func testTLSWithoutCertificateAndVerify(container *Container) TestCall {
 		evt, err := stream.Recv()
 		require.Nil(t, evt)
 		require.True(t, errors.Is(err, io.EOF))
-	}
-}
+	})
 
-func testTLSWithoutCertificate(container *Container) TestCall {
-	return func(t *testing.T) {
-		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true", container.Endpoint))
+	t.Run("testTLSWithoutCertificate", func(t *testing.T) {
+		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true", "localhost:2111,localhost:2112,localhost:2113"))
 		if err != nil {
 			t.Fatalf("Unexpected configuration error: %s", err.Error())
 		}
@@ -151,19 +133,17 @@ func testTLSWithoutCertificate(container *Container) TestCall {
 		_, err = c.ReadAll(context.Background(), opts, numberOfEvents)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to verify certificate")
-	}
-}
+	})
 
-func testTLSWithCertificate(container *Container) TestCall {
-	return func(t *testing.T) {
-		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true", container.Endpoint))
+	t.Run("WithCertificate", func(t *testing.T) {
+		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true", "localhost:2111,localhost:2112,localhost:2113"))
 		if err != nil {
 			t.Fatalf("Unexpected configuration error: %s", err.Error())
 		}
 
-		b, err := os.ReadFile("../certs/node/node.crt")
+		b, err := os.ReadFile("../certs/ca/ca.crt")
 		if err != nil {
-			t.Fatalf("failed to read node certificate ../certs/node/node.crt: %s", err.Error())
+			t.Fatalf("failed to read node certificate ../certs/ca/ca.crt: %s", err.Error())
 		}
 		cp := x509.NewCertPool()
 		if !cp.AppendCertsFromPEM(b) {
@@ -191,17 +171,15 @@ func testTLSWithCertificate(container *Container) TestCall {
 		evt, err := stream.Recv()
 		require.Nil(t, evt)
 		require.True(t, errors.Is(err, io.EOF))
-	}
-}
+	})
 
-func testTLSWithCertificateFromAbsoluteFile(container *Container) TestCall {
-	return func(t *testing.T) {
-		absPath, err := filepath.Abs("../certs/node/node.crt")
+	t.Run("WithCertificateFromAbsoluteFile", func(t *testing.T) {
+		absPath, err := filepath.Abs("../certs/ca/ca.crt")
 		if err != nil {
 			t.Fatalf("Unexpected error: %s", err.Error())
 		}
 
-		s := fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true&tlsCAFile=%s", container.Endpoint, absPath)
+		s := fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true&tlsCAFile=%s", "localhost:2111,localhost:2112,localhost:2113", absPath)
 		config, err := kurrentdb.ParseConnectionString(s)
 		if err != nil {
 			t.Fatalf("Unexpected configuration error: %s", err.Error())
@@ -228,12 +206,10 @@ func testTLSWithCertificateFromAbsoluteFile(container *Container) TestCall {
 		evt, err := stream.Recv()
 		require.Nil(t, evt)
 		require.True(t, errors.Is(err, io.EOF))
-	}
-}
+	})
 
-func testTLSWithCertificateFromRelativeFile(container *Container) TestCall {
-	return func(t *testing.T) {
-		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true&tlsCAFile=../certs/node/node.crt", container.Endpoint))
+	t.Run("WithCertificateFromRelativeFile", func(t *testing.T) {
+		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true&tlsCAFile=../certs/ca/ca.crt", "localhost:2111,localhost:2112,localhost:2113"))
 		if err != nil {
 			t.Fatalf("Unexpected configuration error: %s", err.Error())
 		}
@@ -259,12 +235,10 @@ func testTLSWithCertificateFromRelativeFile(container *Container) TestCall {
 		evt, err := stream.Recv()
 		require.Nil(t, evt)
 		require.True(t, errors.Is(err, io.EOF))
-	}
-}
+	})
 
-func testTLSWithInvalidCertificate(container *Container) TestCall {
-	return func(t *testing.T) {
-		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true", container.Endpoint))
+	t.Run("WithInvalidCertificate", func(t *testing.T) {
+		config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("esdb://admin:changeit@%s?tls=true&tlsverifycert=true", "localhost:2111,localhost:2112,localhost:2113"))
 		if err != nil {
 			t.Fatalf("Unexpected configuration error: %s", err.Error())
 		}
@@ -298,5 +272,51 @@ func testTLSWithInvalidCertificate(container *Container) TestCall {
 		require.False(t, ok)
 		require.NotNil(t, esdbErr)
 		assert.Contains(t, esdbErr.Error(), "certificate signed by unknown authority")
+	})
+}
+
+func WaitForAdminToBeAvailable(t *testing.T, db *kurrentdb.Client) {
+	for count := 0; count < 50; count++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		t.Logf("[debug] checking if admin user is available...%v/50", count)
+
+		stream, err := db.ReadStream(ctx, "$users", kurrentdb.ReadStreamOptions{}, 1)
+
+		if ctx.Err() != nil {
+			t.Log("[debug] request timed out, retrying...")
+			cancel()
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		if stream != nil {
+			_, err = stream.Recv()
+			if err == nil {
+				t.Log("[debug] admin is available!")
+				cancel()
+				stream.Close()
+				return
+			}
+		}
+
+		if err != nil {
+			if esdbError, ok := kurrentdb.FromError(err); !ok {
+				if esdbError.Code() == kurrentdb.ErrorCodeResourceNotFound ||
+					esdbError.Code() == kurrentdb.ErrorCodeUnauthenticated ||
+					esdbError.Code() == kurrentdb.ErrorCodeDeadlineExceeded ||
+					esdbError.Code() == kurrentdb.ErrorUnavailable {
+					time.Sleep(1 * time.Second)
+					t.Logf("[debug] not available retrying...")
+					cancel()
+					continue
+				}
+
+				t.Fatalf("unexpected error when waiting the admin account to be available: %+v", esdbError)
+			}
+
+			t.Fatalf("unexpected error when waiting the admin account to be available: %+v", err)
+		}
 	}
+
+	t.Fatalf("failed to access admin account in a timely manner")
 }
