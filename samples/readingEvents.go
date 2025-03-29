@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 )
 
 func ReadFromStream(db *kurrentdb.Client) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 )
 
 func ExcludeSystemEvents(db *kurrentdb.Client) {

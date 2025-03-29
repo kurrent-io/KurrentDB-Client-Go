@@ -5,32 +5,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 )
 
-func InsecureAuthenticationTests(t *testing.T, client *kurrentdb.Client) {
-	t.Run("AuthenticationTests", func(t *testing.T) {
-		t.Run("callInsecureWithoutCredentials", callInsecureWithoutCredentials(client))
-		t.Run("callInsecureWithInvalidCredentials", callInsecureWithInvalidCredentials(client))
-	})
-}
+func TestInsecureAuthentication(t *testing.T) {
+	fixture := NewInsecureClientFixture(t)
+	defer fixture.Close(t)
 
-func callInsecureWithoutCredentials(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+	client := fixture.Client()
+
+	t.Run("callInsecureWithoutCredentials", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 		defer cancel()
 
-		err := db.CreatePersistentSubscription(context, NAME_GENERATOR.Generate(), NAME_GENERATOR.Generate(), kurrentdb.PersistentStreamSubscriptionOptions{})
+		err := client.CreatePersistentSubscription(ctx, fixture.NewStreamId(), fixture.NewGroupId(), kurrentdb.PersistentStreamSubscriptionOptions{})
 
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
-	}
-}
+	})
 
-func callInsecureWithInvalidCredentials(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+	t.Run("callInsecureWithInvalidCredentials", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 		defer cancel()
 
 		opts := kurrentdb.PersistentStreamSubscriptionOptions{
@@ -39,10 +35,10 @@ func callInsecureWithInvalidCredentials(db *kurrentdb.Client) TestCall {
 				Password: "invalid",
 			},
 		}
-		err := db.CreatePersistentSubscription(context, NAME_GENERATOR.Generate(), NAME_GENERATOR.Generate(), opts)
+		err := client.CreatePersistentSubscription(ctx, fixture.NewStreamId(), fixture.NewGroupId(), opts)
 
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
-	}
+	})
 }

@@ -6,42 +6,49 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func ConnectionTests(t *testing.T, emptyDB *Container) {
-	t.Run("ConnectionTests", func(t *testing.T) {
-		t.Run("closeConnection", closeConnection(emptyDB))
+func TestConnection(t *testing.T) {
+	t.Run("cluster", func(t *testing.T) {
+		fixture := NewSecureClusterClientFixture(t)
+		defer fixture.Close(t)
+		runConnectionTests(t, fixture)
+	})
+
+	t.Run("singleNode", func(t *testing.T) {
+		fixture := NewSecureSingleNodeClientFixture(t)
+		defer fixture.Close(t)
+		runConnectionTests(t, fixture)
 	})
 }
 
-func closeConnection(container *Container) TestCall {
-	return func(t *testing.T) {
-		db := GetClient(t, container)
+func runConnectionTests(t *testing.T, fixture *ClientFixture) {
+	client := fixture.Client()
 
-		testEvent := createTestEvent()
-		testEvent.EventID = uuid.MustParse("38fffbc2-339e-11ea-8c7b-784f43837872")
+	t.Run("closeConnection", func(t *testing.T) {
+		testEvent := fixture.CreateTestEvent()
 
 		streamID := uuid.New()
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 		defer cancel()
 		opts := kurrentdb.AppendToStreamOptions{
 			StreamState: kurrentdb.NoStream{},
 		}
-		_, err := db.AppendToStream(context, streamID.String(), opts, testEvent)
+		_, err := client.AppendToStream(ctx, streamID.String(), opts, testEvent)
 
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
-		db.Close()
+		client.Close()
 		opts.StreamState = kurrentdb.Any{}
-		_, err = db.AppendToStream(context, streamID.String(), opts, testEvent)
+		_, err = client.AppendToStream(ctx, streamID.String(), opts, testEvent)
 
-		esdbErr, ok := kurrentdb.FromError(err)
+		kurrentDbError, ok := kurrentdb.FromError(err)
 		assert.False(t, ok)
-		assert.Equal(t, esdbErr.Code(), kurrentdb.ErrorCodeConnectionClosed)
-	}
+		assert.Equal(t, kurrentDbError.Code(), kurrentdb.ErrorCodeConnectionClosed)
+	})
 }

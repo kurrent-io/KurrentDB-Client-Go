@@ -4,30 +4,39 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func DeleteTests(t *testing.T, db *kurrentdb.Client) {
-	t.Run("DeleteTests", func(t *testing.T) {
-		t.Run("canDeleteStream", canDeleteStream(db))
-		t.Run("canTombstoneStream", canTombstoneStream(db))
-		t.Run("detectStreamDeleted", detectStreamDeleted(db))
+func TestDelete(t *testing.T) {
+	t.Run("cluster", func(t *testing.T) {
+		fixture := NewSecureClusterClientFixture(t)
+		defer fixture.Close(t)
+		runDeleteTests(t, fixture)
+	})
+
+	t.Run("singleNode", func(t *testing.T) {
+		fixture := NewSecureSingleNodeClientFixture(t)
+		defer fixture.Close(t)
+		runDeleteTests(t, fixture)
 	})
 }
-func canDeleteStream(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
+
+func runDeleteTests(t *testing.T, fixture *ClientFixture) {
+	client := fixture.Client()
+
+	t.Run("canDeleteStream", func(t *testing.T) {
 		opts := kurrentdb.DeleteStreamOptions{
 			StreamState: kurrentdb.Revision(0),
 		}
 
-		streamID := NAME_GENERATOR.Generate()
+		streamId := fixture.NewStreamId()
 
-		_, err := db.AppendToStream(context.Background(), streamID, kurrentdb.AppendToStreamOptions{}, createTestEvent())
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{}, fixture.CreateTestEvent())
 		assert.NoError(t, err)
-		deleteResult, err := db.DeleteStream(context.Background(), streamID, opts)
+		deleteResult, err := client.DeleteStream(context.Background(), streamId, opts)
 
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
@@ -35,15 +44,13 @@ func canDeleteStream(db *kurrentdb.Client) TestCall {
 
 		assert.True(t, deleteResult.Position.Commit > 0)
 		assert.True(t, deleteResult.Position.Prepare > 0)
-	}
-}
+	})
 
-func canTombstoneStream(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamId := NAME_GENERATOR.Generate()
+	t.Run("canTombstoneStream", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
 
-		_, err := db.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{}, createTestEvent())
-		deleteResult, err := db.TombstoneStream(context.Background(), streamId, kurrentdb.TombstoneStreamOptions{
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{}, fixture.CreateTestEvent())
+		deleteResult, err := client.TombstoneStream(context.Background(), streamId, kurrentdb.TombstoneStreamOptions{
 			StreamState: kurrentdb.Revision(0),
 		})
 
@@ -54,30 +61,28 @@ func canTombstoneStream(db *kurrentdb.Client) TestCall {
 		assert.True(t, deleteResult.Position.Commit > 0)
 		assert.True(t, deleteResult.Position.Prepare > 0)
 
-		_, err = db.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{}, createTestEvent())
+		_, err = client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{}, fixture.CreateTestEvent())
 		require.Error(t, err)
-	}
-}
+	})
 
-func detectStreamDeleted(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamID := NAME_GENERATOR.Generate()
-		event := createTestEvent()
+	t.Run("detectStreamDeleted", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		event := fixture.CreateTestEvent()
 
-		_, err := db.AppendToStream(context.Background(), streamID, kurrentdb.AppendToStreamOptions{}, event)
+		_, err := client.AppendToStream(context.Background(), streamId, kurrentdb.AppendToStreamOptions{}, event)
 		require.Nil(t, err)
 
-		_, err = db.TombstoneStream(context.Background(), streamID, kurrentdb.TombstoneStreamOptions{})
+		_, err = client.TombstoneStream(context.Background(), streamId, kurrentdb.TombstoneStreamOptions{})
 		require.Nil(t, err)
 
-		stream, err := db.ReadStream(context.Background(), streamID, kurrentdb.ReadStreamOptions{}, 1)
+		stream, err := client.ReadStream(context.Background(), streamId, kurrentdb.ReadStreamOptions{}, 1)
 		require.NoError(t, err)
 		defer stream.Close()
 
 		evt, err := stream.Recv()
 		require.Nil(t, evt)
-		esdbErr, ok := kurrentdb.FromError(err)
+		kurrentDbError, ok := kurrentdb.FromError(err)
 		require.False(t, ok)
-		require.Equal(t, esdbErr.Code(), kurrentdb.ErrorCodeStreamDeleted)
-	}
+		require.Equal(t, kurrentDbError.Code(), kurrentdb.ErrorCodeStreamDeleted)
+	})
 }

@@ -1,7 +1,7 @@
 syntax = "proto3";
 package event_store.client.streams;
 option java_package = "com.eventstore.dbclient.proto.streams";
-option go_package = "github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/streams";
+option go_package = "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams";
 
 import "shared.proto";
 import "status.proto";

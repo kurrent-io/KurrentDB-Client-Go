@@ -7,7 +7,7 @@
 package projections
 
 import (
-	shared "github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/shared"
+	shared "github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"

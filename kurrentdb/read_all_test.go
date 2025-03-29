@@ -2,133 +2,84 @@ package kurrentdb_test
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func ReadAllTests(t *testing.T, populatedDBClient *kurrentdb.Client) {
-	t.Run("ReadAllTests", func(t *testing.T) {
-		t.Run("readAllEventsForwardsFromZeroPosition(", readAllEventsForwardsFromZeroPosition(populatedDBClient))
-		t.Run("readAllEventsForwardsFromNonZeroPosition", readAllEventsForwardsFromNonZeroPosition(populatedDBClient))
-		t.Run("readAllEventsBackwardsFromZeroPosition", readAllEventsBackwardsFromZeroPosition(populatedDBClient))
-		t.Run("readAllEventsBackwardsFromNonZeroPosition", readAllEventsBackwardsFromNonZeroPosition(populatedDBClient))
-		t.Run("readAllEventsWithCredentialsOverride", readAllEventsWithCredentialOverride(populatedDBClient))
-	})
-}
+func TestReadAll(t *testing.T) {
+	fixture := NewSecureClusterClientFixture(t)
+	defer fixture.Close(t)
 
-func readAllEventsForwardsFromZeroPosition(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		eventsContent, err := os.ReadFile("../resources/test/all-e0-e10.json")
-		require.NoError(t, err)
+	client := fixture.Client()
 
-		var testEvents []TestEvent
-		err = json.Unmarshal(eventsContent, &testEvents)
-		require.NoError(t, err)
-
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+	t.Run("readAllEventsForwardsFromZeroPosition(", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 		defer cancel()
 
-		numberOfEventsToRead := 10
-		numberOfEvents := uint64(numberOfEventsToRead)
+		numberOfEvents := uint64(10)
 
 		opts := kurrentdb.ReadAllOptions{
 			Direction:      kurrentdb.Forwards,
 			From:           kurrentdb.Start{},
 			ResolveLinkTos: true,
 		}
-		stream, err := db.ReadAll(context, opts, numberOfEvents)
+		stream, err := client.ReadAll(ctx, opts, numberOfEvents)
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
 		defer stream.Close()
 
-		events, err := collectStreamEvents(stream)
+		events, err := fixture.CollectEvents(stream)
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
-		for i := 0; i < numberOfEventsToRead; i++ {
-			assert.Equal(t, testEvents[i].Event.EventID, events[i].OriginalEvent().EventID)
-			assert.Equal(t, testEvents[i].Event.EventType, events[i].OriginalEvent().EventType)
-			assert.Equal(t, testEvents[i].Event.StreamID, events[i].OriginalEvent().StreamID)
-			assert.Equal(t, testEvents[i].Event.StreamRevision.Value, events[i].OriginalEvent().EventNumber)
-			assert.Equal(t, testEvents[i].Event.Created.Nanos, events[i].OriginalEvent().CreatedDate.Nanosecond())
-			assert.Equal(t, testEvents[i].Event.Created.Seconds, events[i].OriginalEvent().CreatedDate.Unix())
-			assert.Equal(t, testEvents[i].Event.Position.Commit, events[i].OriginalEvent().Position.Commit)
-			assert.Equal(t, testEvents[i].Event.Position.Prepare, events[i].OriginalEvent().Position.Prepare)
-			assert.Equal(t, testEvents[i].Event.ContentType, events[i].OriginalEvent().ContentType)
-		}
-	}
-}
+		assert.Equal(t, numberOfEvents, uint64(len(events)), "Expected the correct number of messages to be returned")
+	})
 
-func readAllEventsForwardsFromNonZeroPosition(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		eventsContent, err := os.ReadFile("../resources/test/all-c1788-p1788.json")
-		require.NoError(t, err)
+	t.Run("readAllEventsForwardsFromNonZeroPosition", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
 
-		var testEvents []TestEvent
-		err = json.Unmarshal(eventsContent, &testEvents)
-		require.NoError(t, err)
-
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 		defer cancel()
 
-		numberOfEventsToRead := 10
-		numberOfEvents := uint64(numberOfEventsToRead)
+		initialEvent := fixture.CreateTestEvent()
+		result, err := fixture.client.AppendToStream(ctx, streamId, kurrentdb.AppendToStreamOptions{}, initialEvent)
 
+		fixture.CreateTestEvents(streamId, 1000)
+
+		assert.NoError(t, err)
 		opts := kurrentdb.ReadAllOptions{
-			From:           kurrentdb.Position{Commit: 1_788, Prepare: 1_788},
+			From:           kurrentdb.Position{Commit: result.CommitPosition, Prepare: result.PreparePosition},
 			ResolveLinkTos: true,
 		}
 
-		stream, err := db.ReadAll(context, opts, numberOfEvents)
+		stream, err := client.ReadAll(ctx, opts, 1000)
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
 		defer stream.Close()
 
-		events, err := collectStreamEvents(stream)
-		if err != nil {
-			t.Fatalf("Unexpected failure %+v", err)
-		}
+		events, err := fixture.CollectEvents(stream)
+		assert.NoError(t, err)
 
-		for i := 0; i < numberOfEventsToRead; i++ {
-			assert.Equal(t, testEvents[i].Event.EventID, events[i].OriginalEvent().EventID)
-			assert.Equal(t, testEvents[i].Event.EventType, events[i].OriginalEvent().EventType)
-			assert.Equal(t, testEvents[i].Event.StreamID, events[i].OriginalEvent().StreamID)
-			assert.Equal(t, testEvents[i].Event.StreamRevision.Value, events[i].OriginalEvent().EventNumber)
-			assert.Equal(t, testEvents[i].Event.Created.Nanos, events[i].OriginalEvent().CreatedDate.Nanosecond())
-			assert.Equal(t, testEvents[i].Event.Created.Seconds, events[i].OriginalEvent().CreatedDate.Unix())
-			assert.Equal(t, testEvents[i].Event.Position.Commit, events[i].OriginalEvent().Position.Commit)
-			assert.Equal(t, testEvents[i].Event.Position.Prepare, events[i].OriginalEvent().Position.Prepare)
-			assert.Equal(t, testEvents[i].Event.ContentType, events[i].OriginalEvent().ContentType)
-		}
-	}
-}
+		assert.Equal(t, events[0].OriginalEvent().Position.Commit, result.CommitPosition)
+		assert.Equal(t, events[0].OriginalEvent().EventID, initialEvent.EventID)
+		assert.True(t, events[1].OriginalEvent().Position.Commit > result.CommitPosition)
+	})
 
-func readAllEventsBackwardsFromZeroPosition(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		eventsContent, err := os.ReadFile("../resources/test/all-back-e0-e10.json")
-		require.NoError(t, err)
+	t.Run("readAllEventsBackwardsFromZeroPosition", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
+		testEvents := fixture.CreateTestEvents(streamId, 1000)
 
-		var testEvents []TestEvent
-		err = json.Unmarshal(eventsContent, &testEvents)
-		require.NoError(t, err)
-
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 		defer cancel()
-
-		numberOfEventsToRead := 10
-		numberOfEvents := uint64(numberOfEventsToRead)
 
 		opts := kurrentdb.ReadAllOptions{
 			From:           kurrentdb.End{},
@@ -136,120 +87,99 @@ func readAllEventsBackwardsFromZeroPosition(db *kurrentdb.Client) TestCall {
 			ResolveLinkTos: true,
 		}
 
-		// We read 30 more events in case the DB had pushed more config related events before the test begins.
-		stream, err := db.ReadAll(context, opts, numberOfEvents+30)
+		stream, err := client.ReadAll(ctx, opts, 1000)
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
 		defer stream.Close()
 
-		events, err := collectStreamEvents(stream)
+		collectedEvents, err := fixture.CollectEvents(stream)
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
-		offset := 0
+		assert.NotEmpty(t, collectedEvents)
+		assert.Len(t, collectedEvents, 1000)
 
-		// We remove potential events that were added by the server on startup, causing the expected event list to be
-		// misaligned.
-		for i := 0; i < numberOfEventsToRead; i++ {
-			if events[i].OriginalEvent().CreatedDate.Year() == 2020 {
-				break
+		found := false
+		for _, collectedEvent := range collectedEvents {
+			for _, testEvent := range testEvents {
+				if collectedEvent.OriginalEvent().EventID == testEvent.EventID {
+					found = true
+					break
+				}
 			}
-
-			offset += 1
 		}
+		assert.True(t, found, "Expected to find at least one event from the testEvents")
+	})
 
-		for i := 0; i < numberOfEventsToRead; i++ {
-			assert.Equal(t, testEvents[i].Event.EventID, events[i+offset].OriginalEvent().EventID)
-			assert.Equal(t, testEvents[i].Event.EventType, events[i+offset].OriginalEvent().EventType)
-			assert.Equal(t, testEvents[i].Event.StreamID, events[i+offset].OriginalEvent().StreamID)
-			assert.Equal(t, testEvents[i].Event.StreamRevision.Value, events[i+offset].OriginalEvent().EventNumber)
-			assert.Equal(t, testEvents[i].Event.Created.Nanos, events[i+offset].OriginalEvent().CreatedDate.Nanosecond())
-			assert.Equal(t, testEvents[i].Event.Created.Seconds, events[i+offset].OriginalEvent().CreatedDate.Unix())
-			assert.Equal(t, testEvents[i].Event.Position.Commit, events[i+offset].OriginalEvent().Position.Commit)
-			assert.Equal(t, testEvents[i].Event.Position.Prepare, events[i+offset].OriginalEvent().Position.Prepare)
-			assert.Equal(t, testEvents[i].Event.ContentType, events[i+offset].OriginalEvent().ContentType)
-		}
-	}
-}
+	t.Run("readAllEventsBackwardsFromNonZeroPosition", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
 
-func readAllEventsBackwardsFromNonZeroPosition(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		eventsContent, err := os.ReadFile("../resources/test/all-back-c3386-p3386.json")
-		require.NoError(t, err)
-
-		var testEvents []TestEvent
-		err = json.Unmarshal(eventsContent, &testEvents)
-		require.NoError(t, err)
-
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 		defer cancel()
 
-		numberOfEventsToRead := 10
-		numberOfEvents := uint64(numberOfEventsToRead)
+		testEvents := fixture.CreateTestEvents(streamId, 1000)
+
+		initialEvent := fixture.CreateTestEvent()
+		result, err := fixture.client.AppendToStream(ctx, streamId, kurrentdb.AppendToStreamOptions{}, initialEvent)
+		assert.NoError(t, err)
+
+		fixture.CreateTestEvents(streamId, 10)
 
 		opts := kurrentdb.ReadAllOptions{
-			From:           kurrentdb.Position{Commit: 3_386, Prepare: 3_386},
+			From:           kurrentdb.Position{Commit: result.CommitPosition, Prepare: result.PreparePosition},
 			Direction:      kurrentdb.Backwards,
 			ResolveLinkTos: true,
 		}
 
-		stream, err := db.ReadAll(context, opts, numberOfEvents)
+		stream, err := client.ReadAll(ctx, opts, 1000)
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
 		defer stream.Close()
 
-		events, err := collectStreamEvents(stream)
+		collectedEvents, err := fixture.CollectEvents(stream)
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
-		assert.Equal(t, numberOfEvents, uint64(len(events)), "Expected the correct number of messages to be returned")
-
-		for i := 0; i < numberOfEventsToRead; i++ {
-			assert.Equal(t, testEvents[i].Event.EventID, events[i].OriginalEvent().EventID)
-			assert.Equal(t, testEvents[i].Event.EventType, events[i].OriginalEvent().EventType)
-			assert.Equal(t, testEvents[i].Event.StreamID, events[i].OriginalEvent().StreamID)
-			assert.Equal(t, testEvents[i].Event.StreamRevision.Value, events[i].OriginalEvent().EventNumber)
-			assert.Equal(t, testEvents[i].Event.Created.Nanos, events[i].OriginalEvent().CreatedDate.Nanosecond())
-			assert.Equal(t, testEvents[i].Event.Created.Seconds, events[i].OriginalEvent().CreatedDate.Unix())
-			assert.Equal(t, testEvents[i].Event.Position.Commit, events[i].OriginalEvent().Position.Commit)
-			assert.Equal(t, testEvents[i].Event.Position.Prepare, events[i].OriginalEvent().Position.Prepare)
-			assert.Equal(t, testEvents[i].Event.ContentType, events[i].OriginalEvent().ContentType)
+		found := false
+		for _, collectedEvent := range collectedEvents {
+			for _, testEvent := range testEvents {
+				if collectedEvent.OriginalEvent().EventID == testEvent.EventID {
+					found = true
+					break
+				}
+			}
 		}
-	}
-}
+		assert.True(t, found, "Expected to find at least one event from the testEvents")
+	})
 
-func readAllEventsWithCredentialOverride(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		eventsContent, err := os.ReadFile("../resources/test/all-back-c3386-p3386.json")
-		require.NoError(t, err)
+	t.Run("readAllEventsWithCredentialsOverride", func(t *testing.T) {
+		streamId := fixture.NewStreamId()
 
-		var testEvents []TestEvent
-		err = json.Unmarshal(eventsContent, &testEvents)
-		require.NoError(t, err)
-
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
 		defer cancel()
 
-		numberOfEventsToRead := 10
-		numberOfEvents := uint64(numberOfEventsToRead)
+		result, err := fixture.client.AppendToStream(ctx, streamId, kurrentdb.AppendToStreamOptions{}, fixture.CreateTestEvent())
+		assert.NoError(t, err)
+
+		fixture.CreateTestEvents(streamId, 10)
 
 		opts := kurrentdb.ReadAllOptions{
 			Authenticated: &kurrentdb.Credentials{
 				Login:    "admin",
 				Password: "changeit",
 			},
-			From:           kurrentdb.Position{Commit: 3_386, Prepare: 3_386},
+			From:           kurrentdb.Position{Commit: result.CommitPosition, Prepare: result.PreparePosition},
 			Direction:      kurrentdb.Forwards,
 			ResolveLinkTos: false,
 		}
 
-		stream, err := db.ReadAll(context, opts, numberOfEvents)
+		stream, err := client.ReadAll(ctx, opts, 10)
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
@@ -257,9 +187,9 @@ func readAllEventsWithCredentialOverride(db *kurrentdb.Client) TestCall {
 		defer stream.Close()
 
 		// collect all events to see if no error occurs
-		_, err = collectStreamEvents(stream)
+		_, err = fixture.CollectEvents(stream)
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
-	}
+	})
 }

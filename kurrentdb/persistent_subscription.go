@@ -9,8 +9,8 @@ import (
 
 	"sync"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/persistent"
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/shared"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/persistent"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
 )
 
 // NackAction persistent subscription acknowledgement error type.

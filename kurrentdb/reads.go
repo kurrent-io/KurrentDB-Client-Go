@@ -8,7 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	api "github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/streams"
+	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams"
 	"google.golang.org/grpc/metadata"
 )
 

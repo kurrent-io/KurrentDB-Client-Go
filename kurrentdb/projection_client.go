@@ -5,8 +5,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/projections"
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/shared"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/projections"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"

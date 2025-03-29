@@ -1,7 +1,7 @@
 syntax = "proto3";
 package event_store.client;
 option java_package = "com.eventstore.dbclient.proto.shared";
-option go_package = "github.com/kurrent-io/KurrentDB-Client-Go/v1/protos/shared";
+option go_package = "github.com/kurrent-io/KurrentDB-Client-Go/protos/shared";
 import "google/protobuf/empty.proto";
 
 message UUID {

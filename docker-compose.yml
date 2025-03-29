@@ -1,28 +1,96 @@
-version: '3.5'
+name: tests
 
 services:
-  volumes-provisioner:
-    image: "hasnat/volumes-provisioner"
+  kurrentdb-insecure:
+    container_name: single-insecure
+    image: ${EVENTSTORE_DOCKER_REGISTRY:-docker.eventstore.com/eventstore-ce}/${EVENTSTORE_DOCKER_IMAGE:-eventstoredb-ce}:${EVENTSTORE_DOCKER_TAG:-latest}
+    ports:
+      - "2114:2113"
     environment:
-      PROVISION_DIRECTORIES: "1000:1000:0755:/tmp/certs"
-    volumes:
-      - "./certs:/tmp/certs"
-    network_mode: "none"
+      EVENTSTORE_INSECURE: "true"
 
-  setup:
-    image: docker.eventstore.com/eventstore-utils/es-gencert-cli:latest
-    entrypoint: bash
-    user: "1000:1000"
-    command: >
-      -c "mkdir -p ./certs && cd /certs
-      && es-gencert-cli create-ca
-      && es-gencert-cli create-node -out ./node --dns-names localhost
-      && es-gencert-cli create-ca -out ./untrusted-ca
-      && es-gencert-cli create-user -username admin
-      && es-gencert-cli create-user -username invalid
-      && find . -type f -print0 | xargs -0 chmod 666"
-    container_name: setup
+  kurrentdb-secure:
+    container_name: single-secure
+    image: ${EVENTSTORE_DOCKER_REGISTRY:-docker.eventstore.com/eventstore-ce}/${EVENTSTORE_DOCKER_IMAGE:-eventstoredb-ce}:${EVENTSTORE_DOCKER_TAG:-latest}
+    environment:
+      EVENTSTORE_CERTIFICATE_FILE: "/etc/eventstore/certs/node1/node.crt"
+      EVENTSTORE_CERTIFICATE_PRIVATE_KEY_FILE: "/etc/eventstore/certs/node1/node.key"
+      EVENTSTORE_TRUSTED_ROOT_CERTIFICATES_PATH: "/etc/eventstore/certs/ca"
+      EVENTSTORE_ADVERTISE_HOST_TO_CLIENT_AS: "localhost"
+      EVENTSTORE_ADVERTISE_HTTP_PORT_TO_CLIENT_AS: "2115"
+      EVENTSTORE_RUN_PROJECTIONS: "All"
+      EVENTSTORE_START_STANDARD_PROJECTIONS: "true"
+      EVENTSTORE_ALLOW_UNKNOWN_OPTIONS: "true"
+    ports:
+      - "2115:2113"
     volumes:
-      - ./certs:/certs
-    depends_on:
-      - volumes-provisioner
+      - ./certs:/etc/eventstore/certs
+
+  cluster-node-1:
+    container_name: cluster-node-1
+    image: ${EVENTSTORE_DOCKER_REGISTRY:-docker.eventstore.com/eventstore-ce}/${EVENTSTORE_DOCKER_IMAGE:-eventstoredb-ce}:${EVENTSTORE_DOCKER_TAG:-latest}
+    env_file:
+      - shared.env
+    environment:
+      EVENTSTORE_GOSSIP_SEED: "172.30.240.12:2113,172.30.240.13:2113"
+      EVENTSTORE_INT_IP: "172.30.240.11"
+      EVENTSTORE_CERTIFICATE_FILE: "/etc/eventstore/certs/node1/node.crt"
+      EVENTSTORE_CERTIFICATE_PRIVATE_KEY_FILE: "/etc/eventstore/certs/node1/node.key"
+      EVENTSTORE_ADVERTISE_HTTP_PORT_TO_CLIENT_AS: "2111"
+    ports:
+      - "2111:2113"
+    networks:
+      cluster-network:
+        ipv4_address: 172.30.240.11
+    volumes:
+      - ./certs:/etc/eventstore/certs
+    restart: unless-stopped
+
+  cluster-node-2:
+    container_name: cluster-node-2
+    image: ${EVENTSTORE_DOCKER_REGISTRY:-docker.eventstore.com/eventstore-ce}/${EVENTSTORE_DOCKER_IMAGE:-eventstoredb-ce}:${EVENTSTORE_DOCKER_TAG:-latest}
+    env_file:
+      - shared.env
+    environment:
+      EVENTSTORE_GOSSIP_SEED: "172.30.240.11:2113,172.30.240.13:2113"
+      EVENTSTORE_INT_IP: "172.30.240.12"
+      EVENTSTORE_CERTIFICATE_FILE: "/etc/eventstore/certs/node2/node.crt"
+      EVENTSTORE_CERTIFICATE_PRIVATE_KEY_FILE: "/etc/eventstore/certs/node2/node.key"
+      EVENTSTORE_ADVERTISE_HTTP_PORT_TO_CLIENT_AS: "2112"
+    ports:
+      - "2112:2113"
+    networks:
+      cluster-network:
+        ipv4_address: 172.30.240.12
+    volumes:
+      - ./certs:/etc/eventstore/certs
+    restart: unless-stopped
+
+  cluster-node-3:
+    container_name: cluster-node-3
+    image: ${EVENTSTORE_DOCKER_REGISTRY:-docker.eventstore.com/eventstore-ce}/${EVENTSTORE_DOCKER_IMAGE:-eventstoredb-ce}:${EVENTSTORE_DOCKER_TAG:-latest}
+    env_file:
+      - shared.env
+    environment:
+      EVENTSTORE_GOSSIP_SEED: "172.30.240.11:2113,172.30.240.12:2113"
+      EVENTSTORE_INT_IP: "172.30.240.13"
+      EVENTSTORE_CERTIFICATE_FILE: "/etc/eventstore/certs/node3/node.crt"
+      EVENTSTORE_CERTIFICATE_PRIVATE_KEY_FILE: "/etc/eventstore/certs/node3/node.key"
+      EVENTSTORE_ADVERTISE_HTTP_PORT_TO_CLIENT_AS: "2113"
+    ports:
+      - "2113:2113"
+    networks:
+      cluster-network:
+        ipv4_address: 172.30.240.13
+    volumes:
+      - ./certs:/etc/eventstore/certs
+    restart: unless-stopped
+
+networks:
+  cluster-network:
+    name: kurrentdb.local
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.240.0/24

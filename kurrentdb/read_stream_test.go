@@ -2,84 +2,48 @@ package kurrentdb_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
-	"math"
-	"os"
-	"testing"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/kurrent-io/KurrentDB-Client-Go/v1/kurrentdb"
-
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io"
+	"testing"
+	"time"
 )
 
-type Created struct {
-	Seconds int64 `json:"seconds"`
-	Nanos   int   `json:"nanos"`
-}
+func TestReadStream(t *testing.T) {
+	t.Run("cluster", func(t *testing.T) {
+		fixture := NewSecureClusterClientFixture(t)
+		defer fixture.Close(t)
+		runReadStreamTests(t, fixture)
+	})
 
-type StreamRevision struct {
-	Value uint64 `json:"value"`
-}
-
-type TestEvent struct {
-	Event Event `json:"event"`
-}
-
-type Event struct {
-	StreamID       string         `json:"streamId"`
-	StreamRevision StreamRevision `json:"streamRevision"`
-	EventID        uuid.UUID      `json:"eventId"`
-	EventType      string         `json:"eventType"`
-	EventData      []byte         `json:"eventData"`
-	UserMetadata   []byte         `json:"userMetadata"`
-	ContentType    string         `json:"contentType"`
-	Position       Position       `json:"position"`
-	Created        Created        `json:"created"`
-}
-
-func ReadStreamTests(t *testing.T, emptyDBClient *kurrentdb.Client, populatedDBClient *kurrentdb.Client) {
-	t.Run("ReadStreamTests", func(t *testing.T) {
-		t.Run("readStreamEventsForwardsFromZeroPosition", readStreamEventsForwardsFromZeroPosition(populatedDBClient))
-		t.Run("readStreamEventsBackwardsFromEndPosition", readStreamEventsBackwardsFromEndPosition(populatedDBClient))
-		t.Run("readStreamReturnsEOFAfterCompletion", readStreamReturnsEOFAfterCompletion(emptyDBClient))
-		t.Run("readStreamNotFound", readStreamNotFound(emptyDBClient))
-		t.Run("readStreamWithMaxAge", readStreamWithMaxAge(emptyDBClient))
-		t.Run("readStreamWithCredentialsOverride", readStreamWithCredentialsOverride(emptyDBClient))
+	t.Run("singleNode", func(t *testing.T) {
+		fixture := NewSecureSingleNodeClientFixture(t)
+		defer fixture.Close(t)
+		runReadStreamTests(t, fixture)
 	})
 }
 
-func readStreamEventsForwardsFromZeroPosition(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		if db == nil {
-			t.Skip()
-		}
+func runReadStreamTests(t *testing.T, fixture *ClientFixture) {
+	client := fixture.Client()
 
-		eventsContent, err := os.ReadFile("../resources/test/dataset20M-1800-e0-e10.json")
-		require.NoError(t, err)
+	t.Run("read stream events forward from zero", func(t *testing.T) {
+		// Arrange
+		streamId := fixture.NewStreamId()
 
-		var testEvents []TestEvent
-		err = json.Unmarshal(eventsContent, &testEvents)
-		require.NoError(t, err)
-
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
-		defer cancel()
-
-		numberOfEventsToRead := 10
-		numberOfEvents := uint64(numberOfEventsToRead)
-
-		streamId := "dataset20M-1800"
+		testEvents := fixture.CreateTestEvents(streamId, 10)
 
 		opts := kurrentdb.ReadStreamOptions{
 			Direction:      kurrentdb.Forwards,
 			ResolveLinkTos: true,
 		}
 
-		stream, err := db.ReadStream(context, streamId, opts, numberOfEvents)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+		defer cancel()
+
+		// Act
+		stream, err := client.ReadStream(ctx, streamId, opts, uint64(len(testEvents)))
 
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
@@ -87,69 +51,34 @@ func readStreamEventsForwardsFromZeroPosition(db *kurrentdb.Client) TestCall {
 
 		defer stream.Close()
 
-		events, err := collectStreamEvents(stream)
+		// Assert
+		events, err := fixture.CollectEvents(stream)
 
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
-		assert.Equal(t, numberOfEvents, uint64(len(events)), "Expected the correct number of messages to be returned")
+		assert.Equal(t, 10, len(events), "Expected the correct number of messages to be returned")
+		assert.Equal(t, testEvents[0].EventID, events[0].OriginalEvent().EventID)
+	})
 
-		serverVersion, err := db.GetServerVersion()
-		if err != nil {
-			t.Fatalf("Failed to retrieve server version %+v", err)
-		}
+	t.Run("read stream events backward from end", func(t *testing.T) {
+		// Arrange
+		streamId := fixture.NewStreamId()
 
-		isAtLeast22_6 := serverVersion.Major == 22 && serverVersion.Minor >= 6 || serverVersion.Major > 22
+		testEvents := fixture.CreateTestEvents(streamId, 10)
 
-		for i := 0; i < numberOfEventsToRead; i++ {
-			assert.Equal(t, testEvents[i].Event.EventID, events[i].OriginalEvent().EventID)
-			assert.Equal(t, testEvents[i].Event.EventType, events[i].OriginalEvent().EventType)
-			assert.Equal(t, testEvents[i].Event.StreamID, events[i].OriginalEvent().StreamID)
-			assert.Equal(t, testEvents[i].Event.StreamRevision.Value, events[i].OriginalEvent().EventNumber)
-			assert.Equal(t, testEvents[i].Event.Created.Nanos, events[i].OriginalEvent().CreatedDate.Nanosecond())
-			assert.Equal(t, testEvents[i].Event.Created.Seconds, events[i].OriginalEvent().CreatedDate.Unix())
-			if isAtLeast22_6 {
-				assert.Equal(t, testEvents[i].Event.Position.Commit, events[i].OriginalEvent().Position.Commit)
-				assert.Equal(t, testEvents[i].Event.Position.Prepare, events[i].OriginalEvent().Position.Prepare)
-			} else {
-				assert.Equal(t, uint64(math.MaxUint64), events[i].OriginalEvent().Position.Commit)
-				assert.Equal(t, uint64(math.MaxUint64), events[i].OriginalEvent().Position.Prepare)
-			}
-
-			assert.Equal(t, testEvents[i].Event.ContentType, events[i].OriginalEvent().ContentType)
-		}
-	}
-}
-
-func readStreamEventsBackwardsFromEndPosition(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		if db == nil {
-			t.Skip()
-		}
-
-		eventsContent, err := os.ReadFile("../resources/test/dataset20M-1800-e1999-e1990.json")
-		require.NoError(t, err)
-
-		var testEvents []TestEvent
-		err = json.Unmarshal(eventsContent, &testEvents)
-
-		require.NoError(t, err)
-
-		context, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
-		defer cancel()
-
-		numberOfEventsToRead := 10
-		numberOfEvents := uint64(numberOfEventsToRead)
-
-		streamId := "dataset20M-1800"
 		opts := kurrentdb.ReadStreamOptions{
 			Direction:      kurrentdb.Backwards,
 			From:           kurrentdb.End{},
 			ResolveLinkTos: true,
 		}
 
-		stream, err := db.ReadStream(context, streamId, opts, numberOfEvents)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
+		defer cancel()
+
+		// Act
+		stream, err := client.ReadStream(ctx, streamId, opts, uint64(len(testEvents)))
 
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
@@ -157,104 +86,74 @@ func readStreamEventsBackwardsFromEndPosition(db *kurrentdb.Client) TestCall {
 
 		defer stream.Close()
 
-		events, err := collectStreamEvents(stream)
+		// Assert
+		events, err := fixture.CollectEvents(stream)
 
 		if err != nil {
 			t.Fatalf("Unexpected failure %+v", err)
 		}
 
-		assert.Equal(t, numberOfEvents, uint64(len(events)), "Expected the correct number of messages to be returned")
+		assert.Equal(t, 10, len(events), "Expected the correct number of messages to be returned")
+		assert.Equal(t, testEvents[len(testEvents)-1].EventID, events[0].OriginalEvent().EventID, "Last event appended should be the first event read")
+	})
 
-		serverVersion, err := db.GetServerVersion()
-		if err != nil {
-			t.Fatalf("Failed to retrieve server version %+v", err)
-		}
+	t.Run("read stream returns EOF after completion", func(t *testing.T) {
+		// Arrange
+		streamId := fixture.NewStreamId()
 
-		isAtLeast22_6 := serverVersion.Major == 22 && serverVersion.Minor >= 6 || serverVersion.Major > 22
+		fixture.CreateTestEvents(streamId, 10)
 
-		for i := 0; i < numberOfEventsToRead; i++ {
-			assert.Equal(t, testEvents[i].Event.EventID, events[i].OriginalEvent().EventID)
-			assert.Equal(t, testEvents[i].Event.EventType, events[i].OriginalEvent().EventType)
-			assert.Equal(t, testEvents[i].Event.StreamID, events[i].OriginalEvent().StreamID)
-			assert.Equal(t, testEvents[i].Event.StreamRevision.Value, events[i].OriginalEvent().EventNumber)
-			assert.Equal(t, testEvents[i].Event.Created.Nanos, events[i].OriginalEvent().CreatedDate.Nanosecond())
-			assert.Equal(t, testEvents[i].Event.Created.Seconds, events[i].OriginalEvent().CreatedDate.Unix())
-			if isAtLeast22_6 {
-				assert.Equal(t, testEvents[i].Event.Position.Commit, events[i].OriginalEvent().Position.Commit)
-				assert.Equal(t, testEvents[i].Event.Position.Prepare, events[i].OriginalEvent().Position.Prepare)
-			} else {
-				assert.Equal(t, uint64(math.MaxUint64), events[i].OriginalEvent().Position.Commit)
-				assert.Equal(t, uint64(math.MaxUint64), events[i].OriginalEvent().Position.Prepare)
-			}
-			assert.Equal(t, testEvents[i].Event.ContentType, events[i].OriginalEvent().ContentType)
-		}
-	}
-}
+		// Act
+		stream, err := client.ReadStream(context.Background(), streamId, kurrentdb.ReadStreamOptions{}, 1_024)
 
-func readStreamReturnsEOFAfterCompletion(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		proposedEvents := []kurrentdb.EventData{}
-
-		for i := 1; i <= 10; i++ {
-			proposedEvents = append(proposedEvents, createTestEvent())
-		}
-
-		opts := kurrentdb.AppendToStreamOptions{
-			StreamState: kurrentdb.NoStream{},
-		}
-
-		streamID := NAME_GENERATOR.Generate()
-
-		_, err := db.AppendToStream(context.Background(), streamID, opts, proposedEvents...)
-		require.NoError(t, err)
-
-		stream, err := db.ReadStream(context.Background(), streamID, kurrentdb.ReadStreamOptions{}, 1_024)
-
+		// Assert
 		require.NoError(t, err)
 		defer stream.Close()
-		_, err = collectStreamEvents(stream)
+		_, err = fixture.CollectEvents(stream)
 		require.NoError(t, err)
 
 		_, err = stream.Recv()
 		require.Error(t, err)
 		require.True(t, err == io.EOF)
-	}
-}
+	})
 
-func readStreamNotFound(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		stream, err := db.ReadStream(context.Background(), NAME_GENERATOR.Generate(), kurrentdb.ReadStreamOptions{}, 1)
+	t.Run("read stream not found", func(t *testing.T) {
+		// Arrange
+		streamId := fixture.NewStreamId()
 
+		// Act
+		stream, err := client.ReadStream(context.Background(), streamId, kurrentdb.ReadStreamOptions{}, 1)
+
+		// Assert
 		require.NoError(t, err)
 		defer stream.Close()
 
 		evt, err := stream.Recv()
 		require.Nil(t, evt)
 
-		esdbErr, ok := kurrentdb.FromError(err)
+		kurrentDbError, ok := kurrentdb.FromError(err)
 
 		require.False(t, ok)
-		require.Equal(t, esdbErr.Code(), kurrentdb.ErrorCodeResourceNotFound)
-	}
-}
+		require.Equal(t, kurrentDbError.Code(), kurrentdb.ErrorCodeResourceNotFound)
+	})
 
-func readStreamWithMaxAge(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		streamName := NAME_GENERATOR.Generate()
-		_, err := db.AppendToStream(context.Background(), streamName, kurrentdb.AppendToStreamOptions{}, createTestEvent())
+	t.Run("read stream with MaxAge", func(t *testing.T) {
+		// Arrange
+		streamId := fixture.NewStreamId()
+		fixture.CreateTestEvents(streamId, 10)
 
-		assert.NoError(t, err)
-
+		// Act
 		metadata := kurrentdb.StreamMetadata{}
 		metadata.SetMaxAge(time.Second)
 
-		_, err = db.SetStreamMetadata(context.Background(), streamName, kurrentdb.AppendToStreamOptions{}, metadata)
+		_, err := client.SetStreamMetadata(context.Background(), streamId, kurrentdb.AppendToStreamOptions{}, metadata)
 
 		assert.NoError(t, err)
 
 		time.Sleep(2 * time.Second)
 
-		stream, err := db.ReadStream(context.Background(), streamName, kurrentdb.ReadStreamOptions{}, 10)
+		// Assert
+		stream, err := client.ReadStream(context.Background(), streamId, kurrentdb.ReadStreamOptions{}, 10)
 		require.NoError(t, err)
 		defer stream.Close()
 
@@ -262,32 +161,27 @@ func readStreamWithMaxAge(db *kurrentdb.Client) TestCall {
 		require.Nil(t, evt)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, io.EOF))
-	}
-}
+	})
 
-func readStreamWithCredentialsOverride(db *kurrentdb.Client) TestCall {
-	return func(t *testing.T) {
-		isInsecure := GetEnvOrDefault("EVENTSTORE_INSECURE", "true") == "true"
-
-		if isInsecure {
-			t.Skip()
-		}
-
-		streamName := NAME_GENERATOR.Generate()
+	t.Run("read stream with credentials override", func(t *testing.T) {
+		// Arrange
+		streamId := fixture.NewStreamId()
 		opts := kurrentdb.AppendToStreamOptions{
 			Authenticated: &kurrentdb.Credentials{
 				Login:    "admin",
 				Password: "changeit",
 			},
 		}
-		_, err := db.AppendToStream(context.Background(), streamName, opts, createTestEvent())
+
+		// Act & Assert
+		_, err := client.AppendToStream(context.Background(), streamId, opts, fixture.CreateTestEvent())
 
 		assert.NoError(t, err)
 
-		streamName = NAME_GENERATOR.Generate()
+		streamId = fixture.NewStreamId()
 		opts.Authenticated.Password = "invalid"
-		_, err = db.AppendToStream(context.Background(), streamName, opts, createTestEvent())
+		_, err = client.AppendToStream(context.Background(), streamId, opts, fixture.CreateTestEvent())
 
 		assert.Error(t, err)
-	}
+	})
 }
