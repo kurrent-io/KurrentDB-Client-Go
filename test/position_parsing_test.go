@@ -1,4 +1,4 @@
-package kurrentdb_test
+package test_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPositionParsing(t *testing.T) {
+func TestPositionParsingSuite(t *testing.T) {
 	t.Run("StreamPositionTests", func(t *testing.T) {
 		pos, err := kurrentdb.ParseStreamPosition("C:123/P:456")
 		assert.NoError(t, err)

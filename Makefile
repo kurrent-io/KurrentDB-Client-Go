@@ -49,4 +49,4 @@ stop-kurrentdb:
 
 .PHONY: test
 test: ## Run tests
-	go test --count=1 -v ./kurrentdb
+	go test --count=1 -v ./test

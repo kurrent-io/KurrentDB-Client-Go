@@ -10,11 +10,14 @@
 
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/kurrent-io/KurrentDB-Client-Go)](https://pkg.go.dev/github.com/kurrent-io/KurrentDB-Client-Go)
 [![CI](https://github.com/kurrent-io/KurrentDB-Client-Go/actions/workflows/ci.yml/badge.svg)](https://github.com/kurrent-io/KurrentDB-Client-Go/actions/workflows/ci.yml)
+[![LTS](https://github.com/kurrent-io/KurrentDB-Client-Go/actions/workflows/lts.yml/badge.svg)](https://github.com/kurrent-io/KurrentDB-Client-Go/actions/workflows/lts.yml)
+[![Previous LTS](https://github.com/kurrent-io/KurrentDB-Client-Go/actions/workflows/previous-lts.yml/badge.svg)](https://github.com/kurrent-io/KurrentDB-Client-Go/actions/workflows/previous-lts.yml)
 
-KurrentDB is the event-native database, where business events are immutably stored and streamed. Designed for
-event-sourced, event-driven, and microservices architectures.
+KurrentDB is a database that's engineered for modern software applications and event-driven architectures. Its
+event-native design simplifies data modeling and preserves data integrity while the integrated streaming engine solves
+distributed messaging challenges and ensures data consistency.
 
-"KurrentDB Go Client" is the client for talking to [KurrentDB](https://kurrent.io/).
+"KurrentDB Client Go" is the client for talking to [KurrentDB](https://kurrent.io/).
 
 The fastest way to add this client to a project is to run `go get github.com/kurrent-io/KurrentDB-Client-Go@latest` with
 go, See [INSTALL.md](/INSTALL.md) for detailed installation instructions and troubleshooting.
@@ -84,18 +87,20 @@ Alternatively, you can run the tests using the `go test` command:
 go test ./...
 ```
 
-By default the tests use `docker.eventstore.com/eventstore-ce/eventstoredb-ce:latest`. If you want to run the tests with
-a specific Docker image, you can set the following environment variables:
+By default, the test suite uses the Docker image: `docker.kurrent.io/eventstore/eventstoredb-ee:lts`. To run the tests
+with a different image, set the environment variables listed below.
 
-For example, to use `docker.kurrent.io/kurrent-staging/kurrentdb:ci`, you would set:
+For example, to use the commercial image
+`docker.kurrentio/eventstore-ee/eventstoredb-commercial:23.10.5-commercialb-bookworm-slim`, configure your environment
+with:
 
-| Variable Name                | Value                             |
+| Variable Name                | Example Value                     |
 |------------------------------|-----------------------------------|
-| `EVENTSTORE_DOCKER_REGISTRY` | docker.kurrent.io/kurrent-staging |
-| `EVENTSTORE_DOCKER_IMAGE`    | kurrentdb                         |
-| `EVENTSTORE_DOCKER_TAG`      | ci                                |
+| `EVENTSTORE_DOCKER_REGISTRY` | docker.kurrentio/eventstore-ee    |
+| `EVENTSTORE_DOCKER_IMAGE`    | eventstoredb-commercial           |
+| `EVENTSTORE_DOCKER_TAG`      | 23.10.5-commercialb-bookworm-slim |
 
-These variables combine to form the complete image reference: `docker.kurrent.io/kurrent-staging/kurrentdb:ci`
+These variables combine to form the complete image reference used during testing.
 
 ## More resources
 

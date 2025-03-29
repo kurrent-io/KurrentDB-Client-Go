@@ -1,4 +1,4 @@
-name: "Dispatch"
+name: "QA"
 
 on:
   workflow_dispatch:
@@ -20,26 +20,16 @@ on:
         description: "The docker registry to use"
 
 jobs:
-  go-version:
-    uses: ./.github/workflows/go-version.yml
+  build-and-lint:
+    name: Build and lint
+    uses: ./.github/workflows/build-and-lint.yml
 
   test:
-    needs: go-version
-    name: Test
+    needs: build-and-lint
+    name: QA
     uses: ./.github/workflows/tests.yml
     with:
       image: ${{ inputs.image }}
       tag: ${{ inputs.tag }}
       registry: ${{ inputs.registry }}
       go_version: ${{ needs.go-version.outputs.go_version }}
-
-  plugins-tests:
-    needs: go-version
-    name: Plugins Tests
-    uses: ./.github/workflows/test-plugins.yml
-    with:
-      tag: ${{ inputs.tag }}
-      image: eventstoredb-commercial
-      registry: docker.eventstore.com/eventstore-ee
-      go_version: ${{ needs.go-version.outputs.go_version }}
-    secrets: inherit

@@ -1,11 +1,11 @@
-package kurrentdb_test
+package test_test
 
 import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io"
 	"os"
 	"strconv"
@@ -33,10 +33,10 @@ func NewInsecureClientFixture(t *testing.T) *ClientFixture {
 	t.Helper()
 
 	config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("kurrentdb://admin:changeit@localhost:2114?tls=false"))
-	assert.NoError(t, err, "Failed to parse connection string")
+	require.NoError(t, err, "Failed to parse connection string")
 
 	client, err := kurrentdb.NewClient(config)
-	assert.NoError(t, err, "Failed to create KurrentDB client")
+	require.NoError(t, err, "Failed to create KurrentDB client")
 
 	return &ClientFixture{
 		client: client,
@@ -49,10 +49,10 @@ func NewSecureSingleNodeClientFixture(t *testing.T) *ClientFixture {
 	tlsCaFile := "../certs/ca/ca.crt"
 
 	config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("kurrentdb://admin:changeit@localhost:2115?tls=true&tlscafile=%s", tlsCaFile))
-	assert.NoError(t, err, "Failed to parse connection string")
+	require.NoError(t, err, "Failed to parse connection string")
 
 	client, err := kurrentdb.NewClient(config)
-	assert.NoError(t, err, "Failed to create KurrentDB client")
+	require.NoError(t, err, "Failed to create KurrentDB client")
 
 	return &ClientFixture{
 		client: client,
@@ -65,10 +65,10 @@ func NewSecureClusterClientFixture(t *testing.T) *ClientFixture {
 	tlsCaFile := "../certs/ca/ca.crt"
 
 	config, err := kurrentdb.ParseConnectionString(fmt.Sprintf("kurrentdb://admin:changeit@localhost:2111,localhost:2112,localhost:2113?tls=true&tlscafile=%s", tlsCaFile))
-	assert.NoError(t, err, "Failed to parse connection string")
+	require.NoError(t, err, "Failed to parse connection string")
 
 	client, err := kurrentdb.NewClient(config)
-	assert.NoError(t, err, "Failed to create KurrentDB client")
+	require.NoError(t, err, "Failed to create KurrentDB client")
 
 	return &ClientFixture{
 		client: client,
@@ -78,6 +78,10 @@ func NewSecureClusterClientFixture(t *testing.T) *ClientFixture {
 
 func (f *ClientFixture) Client() *kurrentdb.Client {
 	return f.client
+}
+
+func (f *ClientFixture) ProjectionClient() *kurrentdb.ProjectionClient {
+	return kurrentdb.NewProjectionClientFromExistingClient(f.client)
 }
 
 func (f *ClientFixture) CreateTestEvent(eventType ...string) kurrentdb.EventData {

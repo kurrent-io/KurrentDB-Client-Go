@@ -1,7 +1,7 @@
 name: tests
 
 services:
-  kurrentdb-insecure:
+  single-insecure:
     container_name: single-insecure
     image: ${EVENTSTORE_DOCKER_REGISTRY:-docker.eventstore.com/eventstore-ce}/${EVENTSTORE_DOCKER_IMAGE:-eventstoredb-ce}:${EVENTSTORE_DOCKER_TAG:-latest}
     ports:
@@ -9,7 +9,7 @@ services:
     environment:
       EVENTSTORE_INSECURE: "true"
 
-  kurrentdb-secure:
+  single-secure:
     container_name: single-secure
     image: ${EVENTSTORE_DOCKER_REGISTRY:-docker.eventstore.com/eventstore-ce}/${EVENTSTORE_DOCKER_IMAGE:-eventstoredb-ce}:${EVENTSTORE_DOCKER_TAG:-latest}
     environment:

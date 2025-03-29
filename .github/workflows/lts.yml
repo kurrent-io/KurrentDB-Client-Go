@@ -1,4 +1,4 @@
-name: CI
+name: LTS
 
 on:
   pull_request:
@@ -13,13 +13,13 @@ jobs:
     name: Build and lint
     uses: ./.github/workflows/build-and-lint.yml
 
-  ci:
+  lts:
     needs: build-and-lint
-    name: CI
+    name: LTS
     uses: ./.github/workflows/tests.yml
     with:
-      tag: ${{ fromJSON(vars.KURRENTDB_DOCKER_IMAGES).ci.tag }}
-      image: ${{ fromJSON(vars.KURRENTDB_DOCKER_IMAGES).ci.image }}
-      registry: ${{ fromJSON(vars.KURRENTDB_DOCKER_IMAGES).ci.registry }}
+      tag: ${{ fromJSON(vars.KURRENTDB_DOCKER_IMAGES).lts.tag }}
+      image: ${{ fromJSON(vars.KURRENTDB_DOCKER_IMAGES).lts.image }}
+      registry: ${{ fromJSON(vars.KURRENTDB_DOCKER_IMAGES).lts.registry }}
       go_version: ${{ needs.go-version.outputs.go_version }}
     secrets: inherit

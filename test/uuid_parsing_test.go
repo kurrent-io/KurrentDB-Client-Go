@@ -1,4 +1,4 @@
-package kurrentdb_test
+package test_test
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUUIDParsing(t *testing.T) {
+func TestUUIDParsingSuite(t *testing.T) {
 	t.Run("UUIDParsingTests", func(t *testing.T) {
 		expected := uuid.New()
 		most, least := kurrentdb.UUIDAsInt64(expected)

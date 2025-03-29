@@ -1,4 +1,4 @@
-package kurrentdb_test
+package test_test
 
 import (
 	"testing"
@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConnectionString(t *testing.T) {
+func TestConnectionStringSuite(t *testing.T) {
 	t.Run("TestConnectionStringDefaults", func(t *testing.T) {
 		config, err := kurrentdb.ParseConnectionString("esdb://localhost")
 		assert.NoError(t, err)

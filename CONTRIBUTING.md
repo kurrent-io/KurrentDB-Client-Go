@@ -2,7 +2,7 @@
 
 ## Working with the Git
 
-The client uses `main` as the main development branch. It contains all changes to the upcoming release. 
+The client uses `main` as the main development branch. It contains all changes to the upcoming release.
 
 We do our best to ensure a clean history. To do so, we ask contributors to squash their commits into a set or single
 logical commit.

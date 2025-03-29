@@ -43,7 +43,7 @@ jobs:
           username: ${{ secrets.CLOUDSMITH_CICD_USER }}
           password: ${{ secrets.CLOUDSMITH_CICD_TOKEN }}
 
-      - name: Start KurrentDB clusters, insecure and secure node
+      - name: Start KurrentDB
         run: make start-kurrentdb
         env:
           EVENTSTORE_DOCKER_TAG: ${{ inputs.tag }}
