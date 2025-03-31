@@ -33,3 +33,4 @@ jobs:
       tag: ${{ inputs.tag }}
       registry: ${{ inputs.registry }}
       go_version: ${{ needs.go-version.outputs.go_version }}
+    secrets: inherit
