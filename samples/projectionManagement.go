@@ -31,17 +31,17 @@ func CreateClient(connectionString string) {
 }
 
 func Disable(client *kurrentdb.ProjectionClient) {
-	// region disable
+	// region Disable
 	err := client.Disable(context.Background(), "$by_category", kurrentdb.GenericProjectionOptions{})
 
 	if err != nil {
 		panic(err)
 	}
-	// endregion disable
+	// endregion Disable
 }
 
 func DisableNotFound(client *kurrentdb.ProjectionClient) {
-	// region disableNotFound
+	// region DisableNotFound
 	err := client.Disable(context.Background(), "projection that doesn't exist", kurrentdb.GenericProjectionOptions{})
 
 	if esdbError, ok := kurrentdb.FromError(err); !ok {
@@ -50,21 +50,21 @@ func DisableNotFound(client *kurrentdb.ProjectionClient) {
 			return
 		}
 	}
-	// endregion disableNotFound
+	// endregion DisableNotFound
 }
 
 func Enable(client *kurrentdb.ProjectionClient) {
-	// region enable
+	// region Enable
 	err := client.Enable(context.Background(), "$by_category", kurrentdb.GenericProjectionOptions{})
 
 	if err != nil {
 		panic(err)
 	}
-	// endregion enable
+	// endregion Enable
 }
 
 func EnableNotFound(client *kurrentdb.ProjectionClient) {
-	// region enableNotFound
+	// region EnableNotFound
 	err := client.Enable(context.Background(), "projection that doesn't exist", kurrentdb.GenericProjectionOptions{})
 
 	if esdbError, ok := kurrentdb.FromError(err); !ok {
@@ -73,21 +73,21 @@ func EnableNotFound(client *kurrentdb.ProjectionClient) {
 			return
 		}
 	}
-	// endregion enableNotFound
+	// endregion EnableNotFound
 }
 
 func Delete(client *kurrentdb.ProjectionClient) {
-	// region delete
+	// region Delete
 	err := client.Delete(context.Background(), "$by_category", kurrentdb.DeleteProjectionOptions{})
 
 	if err != nil {
 		panic(err)
 	}
-	// endregion delete
+	// endregion Delete
 }
 
 func DeleteNotFound(client *kurrentdb.ProjectionClient) {
-	// region deleteNotFound
+	// region DeleteNotFound
 	err := client.Delete(context.Background(), "projection that doesn't exist", kurrentdb.DeleteProjectionOptions{})
 
 	if esdbError, ok := kurrentdb.FromError(err); !ok {
@@ -96,21 +96,21 @@ func DeleteNotFound(client *kurrentdb.ProjectionClient) {
 			return
 		}
 	}
-	// endregion deleteNotFound
+	// endregion DeleteNotFound
 }
 
 func Abort(client *kurrentdb.ProjectionClient) {
-	// region abort
+	// region Abort
 	err := client.Abort(context.Background(), "$by_category", kurrentdb.GenericProjectionOptions{})
 
 	if err != nil {
 		panic(err)
 	}
-	// endregion abort
+	// endregion Abort
 }
 
 func AbortNotFound(client *kurrentdb.ProjectionClient) {
-	// region abortNotFound
+	// region Abort_NotFound
 	err := client.Abort(context.Background(), "projection that doesn't exist", kurrentdb.GenericProjectionOptions{})
 
 	if esdbError, ok := kurrentdb.FromError(err); !ok {
@@ -119,21 +119,21 @@ func AbortNotFound(client *kurrentdb.ProjectionClient) {
 			return
 		}
 	}
-	// endregion abortNotFound
+	// endregion Abort_NotFound
 }
 
 func Reset(client *kurrentdb.ProjectionClient) {
-	// region reset
+	// region Reset
 	err := client.Reset(context.Background(), "$by_category", kurrentdb.ResetProjectionOptions{})
 
 	if err != nil {
 		panic(err)
 	}
-	// endregion reset
+	// endregion Reset
 }
 
 func ResetNotFound(client *kurrentdb.ProjectionClient) {
-	// region resetNotFound
+	// region Reset_NotFound
 	err := client.Reset(context.Background(), "projection that doesn't exist", kurrentdb.ResetProjectionOptions{})
 
 	if esdbError, ok := kurrentdb.FromError(err); !ok {
@@ -142,11 +142,11 @@ func ResetNotFound(client *kurrentdb.ProjectionClient) {
 			return
 		}
 	}
-	// endregion resetNotFound
+	// endregion Reset_NotFound
 }
 
 func Create(client *kurrentdb.ProjectionClient) {
-	// region createContinuous
+	// region CreateContinuous
 	script := `
 fromAll()
 .when({
@@ -171,14 +171,14 @@ fromAll()
 		panic(err)
 	}
 
-	// endregion createContinuous
+	// endregion CreateContinuous
 }
 
 func CreateConflict(client *kurrentdb.ProjectionClient) {
 	script := ""
 	name := ""
 
-	// region createContinuousConflict
+	// region CreateContinuous_Conflict
 	err := client.Create(context.Background(), name, script, kurrentdb.CreateProjectionOptions{})
 
 	if esdbErr, ok := kurrentdb.FromError(err); !ok {
@@ -187,7 +187,7 @@ func CreateConflict(client *kurrentdb.ProjectionClient) {
 			return
 		}
 	}
-	// endregion createContinuousConflict
+	// endregion CreateContinuous_Conflict
 }
 
 func Update(client *kurrentdb.ProjectionClient) {
@@ -195,7 +195,7 @@ func Update(client *kurrentdb.ProjectionClient) {
 	newScript := ""
 	name := ""
 
-	// region update
+	// region Update
 	err := client.Create(context.Background(), name, script, kurrentdb.CreateProjectionOptions{})
 
 	if err != nil {
@@ -207,14 +207,14 @@ func Update(client *kurrentdb.ProjectionClient) {
 	if err != nil {
 		panic(err)
 	}
-	// endregion update
+	// endregion Update
 
 }
 
 func UpdateNotFound(client *kurrentdb.ProjectionClient) {
 	script := ""
 
-	// region updateNotFound
+	// region Update_NotFound
 	err := client.Update(context.Background(), "projection that doesn't exist", script, kurrentdb.UpdateProjectionOptions{})
 
 	if esdbError, ok := kurrentdb.FromError(err); !ok {
@@ -223,11 +223,11 @@ func UpdateNotFound(client *kurrentdb.ProjectionClient) {
 			return
 		}
 	}
-	// endregion updateNotFound
+	// endregion Update_NotFound
 }
 
 func ListAll(client *kurrentdb.ProjectionClient) {
-	// region listAll
+	// region ListAll
 	projections, err := client.ListAll(context.Background(), kurrentdb.GenericProjectionOptions{})
 
 	if err != nil {
@@ -246,11 +246,11 @@ func ListAll(client *kurrentdb.ProjectionClient) {
 			projection.Progress,
 		)
 	}
-	// endregion listAll
+	// endregion ListAll
 }
 
 func List(client *kurrentdb.ProjectionClient) {
-	// region listContinuous
+	// region ListContinuous
 	projections, err := client.ListContinuous(context.Background(), kurrentdb.GenericProjectionOptions{})
 
 	if err != nil {
@@ -269,11 +269,11 @@ func List(client *kurrentdb.ProjectionClient) {
 			projection.Progress,
 		)
 	}
-	// endregion listContinuous
+	// endregion ListContinuous
 }
 
 func GetStatus(client *kurrentdb.ProjectionClient) {
-	// region getStatus
+	// region GetStatus
 	projection, err := client.GetStatus(context.Background(), "$by_category", kurrentdb.GenericProjectionOptions{})
 
 	if err != nil {
@@ -288,12 +288,12 @@ func GetStatus(client *kurrentdb.ProjectionClient) {
 		projection.Mode,
 		projection.Progress,
 	)
-	// endregion getStatus
+	// endregion GetStatus
 }
 
 func GetState(client *kurrentdb.ProjectionClient) {
 	projectionName := ""
-	// region getState
+	// region GetState
 	type Foobar struct {
 		Count int64
 	}
@@ -317,12 +317,12 @@ func GetState(client *kurrentdb.ProjectionClient) {
 	}
 
 	log.Printf("count %d", foobar.Count)
-	// endregion getState
+	// endregion GetState
 }
 
 func GetResult(client *kurrentdb.ProjectionClient) {
 	projectionName := ""
-	// region getResult
+	// region GetResult
 	type Baz struct {
 		Result int64
 	}
@@ -346,15 +346,15 @@ func GetResult(client *kurrentdb.ProjectionClient) {
 	}
 
 	log.Printf("result %d", baz.Result)
-	// endregion getResult
+	// endregion GetResult
 }
 
 func RestartSubSystem(client *kurrentdb.ProjectionClient) {
-	// region restartSubsystem
+	// region RestartSubSystem
 	err := client.RestartSubsystem(context.Background(), kurrentdb.GenericProjectionOptions{})
 
 	if err != nil {
 		panic(err)
 	}
-	// endregion restartSubsystem
+	// endregion RestartSubSystem
 }
