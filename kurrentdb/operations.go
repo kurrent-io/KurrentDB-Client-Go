@@ -1,6 +1,6 @@
 package kurrentdb
 
-// ServerVersion Represents the version of an KurrentDB node.
+// ServerVersion Represents the version of a KurrentDB node.
 type ServerVersion struct {
 	Major int
 	Minor int

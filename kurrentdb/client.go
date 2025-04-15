@@ -19,13 +19,13 @@ import (
 )
 
 // Client Represents a client to a single node. A client instance maintains a full duplex communication to KurrentDB.
-// Many threads can use an KurrentDB client at the same time or a single thread can make many asynchronous requests.
+// Many threads can use a KurrentDB client at the same time or a single thread can make many asynchronous requests.
 type Client struct {
 	grpcClient *grpcClient
 	config     *Configuration
 }
 
-// NewClient Creates a gRPC client to an KurrentDB database.
+// NewClient Creates a gRPC client to a KurrentDB database.
 func NewClient(configuration *Configuration) (*Client, error) {
 	if err := configuration.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
