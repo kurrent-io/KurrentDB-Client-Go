@@ -6,7 +6,7 @@ import (
 
 func UserCertificates() {
 	// region client-with-user-certificates
-	settings, err := kurrentdb.ParseConnectionString("esdb://admin:changeit@{endpoint}?tls=true&userCertFile={pathToCaFile}&userKeyFile={pathToKeyFile}")
+	settings, err := kurrentdb.ParseConnectionString("kurrentdb://admin:changeit@{endpoint}?tls=true&userCertFile={pathToCaFile}&userKeyFile={pathToKeyFile}")
 
 	if err != nil {
 		panic(err)
