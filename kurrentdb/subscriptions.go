@@ -97,14 +97,51 @@ func (sub *Subscription) Recv() *SubscriptionEvent {
 			}
 		case *api.ReadResp_CaughtUp_:
 			{
+				var caughtUp *CaughtUp = nil
+				wire := result.GetCaughtUp()
+
+				if wire != nil && wire.GetTimestamp() != nil {
+					caughtUp = new(CaughtUp)
+					caughtUp.Date = wire.GetTimestamp().AsTime()
+
+					if wire.StreamRevision != nil {
+						caughtUp.StreamRevision = new(uint64)
+						*caughtUp.StreamRevision = uint64(wire.GetStreamRevision())
+					} else {
+						caughtUp.Position = new(Position)
+						*caughtUp.Position = Position{
+							Commit:  wire.GetPosition().CommitPosition,
+							Prepare: wire.GetPosition().PreparePosition,
+						}
+					}
+				}
+
 				return &SubscriptionEvent{
-					CaughtUp: sub,
+					CaughtUp: caughtUp,
 				}
 			}
 		case *api.ReadResp_FellBehind_:
 			{
+				var fellbehind *FellBehind = nil
+				wire := result.GetFellBehind()
+
+				if wire != nil && wire.GetTimestamp() != nil {
+					fellbehind = new(FellBehind)
+					fellbehind.Date = wire.GetTimestamp().AsTime()
+
+					if wire.StreamRevision != nil {
+						fellbehind.StreamRevision = new(uint64)
+						*fellbehind.StreamRevision = uint64(wire.GetStreamRevision())
+					} else {
+						fellbehind.Position = new(Position)
+						*fellbehind.Position = Position{
+							Commit:  wire.GetPosition().CommitPosition,
+							Prepare: wire.GetPosition().PreparePosition,
+						}
+					}
+				}
 				return &SubscriptionEvent{
-					FellBehind: sub,
+					FellBehind: fellbehind,
 				}
 			}
 		}

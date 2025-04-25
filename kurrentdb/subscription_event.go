@@ -1,5 +1,9 @@
 package kurrentdb
 
+import (
+	"time"
+)
+
 // SubscriptionEvent used to handle catch-up subscription notifications raised throughout its lifecycle.
 type SubscriptionEvent struct {
 	// When KurrentDB sends an event to the subscription.
@@ -9,9 +13,21 @@ type SubscriptionEvent struct {
 	// When a checkpoint was created.
 	CheckPointReached *Position
 	// When an event is caught up
-	CaughtUp *Subscription
+	CaughtUp *CaughtUp
 	// When an event has fallen behind
-	FellBehind *Subscription
+	FellBehind *FellBehind
+}
+
+type CaughtUp struct {
+	Date           time.Time
+	Position       *Position
+	StreamRevision *uint64
+}
+
+type FellBehind struct {
+	Date           time.Time
+	Position       *Position
+	StreamRevision *uint64
 }
 
 // PersistentSubscriptionEvent used to handle persistent subscription notifications raised throughout its lifecycle.
