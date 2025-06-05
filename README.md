@@ -24,7 +24,7 @@ go, See [INSTALL.md](/INSTALL.md) for detailed installation instructions and tro
 
 ### Documentation
 
-* [API Reference](https://pkg.go.dev/github.com/kurrent.io/KurrentDB-Client-Go?tab=doc)
+* [API Reference](https://pkg.go.dev/github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb)
 * [Samples](https://github.com/kurrent-io/KurrentDB-Client-Go/tree/main/samples)
 
 ## Communities
