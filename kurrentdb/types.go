@@ -3,6 +3,7 @@ package kurrentdb
 import (
 	"encoding/json"
 	"fmt"
+	"iter"
 	"strings"
 	"time"
 )
@@ -684,4 +685,10 @@ type PersistentSubscriptionMeasurement struct {
 	Key string `json:"key"`
 	// Metric value.
 	Value int64 `json:"value"`
+}
+
+type AppendStreamRequest struct {
+	StreamName          string
+	Events              iter.Seq[EventData]
+	ExpectedStreamState StreamState
 }
