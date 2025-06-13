@@ -52,8 +52,8 @@ if ($generateProtos) {
 
     Get-ChildItem -Path "protos\*.proto" | ForEach-Object {
         $file = Get-ChildItem $_
-        $baseName = $file.BaseName
-        Write-Host "Compiling $baseName.proto ..."
+        $baseName = $file.BaseName -replace '[.-]', '_'
+        Write-Host "Compiling ${file.BaseName}.proto ..."
         New-Item -Path .\protos -Name $baseName -ItemType "directory" -Force | Out-Null
         Exec { tools\protobuf\bin\protoc --proto_path=$pwd\protos --go_out=.\protos\$baseName --go-grpc_out=.\protos\$baseName --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative --plugin=protoc-gen-go=$gopath\bin\protoc-gen-go.exe --plugin=protoc-gen-go-grpc=$gopath\bin\protoc-gen-go-grpc.exe $file } "Cannot run protoc"
         Write-Host "done."
