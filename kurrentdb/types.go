@@ -692,3 +692,38 @@ type AppendStreamRequest struct {
 	Events              iter.Seq[EventData]
 	ExpectedStreamState StreamState
 }
+
+type AppendStreamSuccess struct {
+	StreamName     string
+	StreamRevision uint64
+	Position       uint64
+}
+
+type AppendStreamErrorCase uint64
+
+const (
+	AppendStreamErrorCaseUnknown AppendStreamErrorCase = iota
+	AppendStreamErrorCaseWrongExpectedRevision
+	AppendStreamErrorCaseAccessDenied
+	AppendStreamErrorCaseStreamDeleted
+	AppendStreamErrorCaseTransactionMaxSizeExceeded
+)
+
+type AppendStreamFailure struct {
+	StreamName string
+	Reason     string
+	ErrorCase  AppendStreamErrorCase
+}
+
+type MultiAppendWriteResult struct {
+	Successes []AppendStreamSuccess
+	Failures  []AppendStreamFailure
+}
+
+func (r *MultiAppendWriteResult) HasFailed() bool {
+	return len(r.Failures) > 0
+}
+
+func (r *MultiAppendWriteResult) IsSuccessful() bool {
+	return !r.HasFailed()
+}
