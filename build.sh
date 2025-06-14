@@ -60,10 +60,11 @@ then
 
     for proto in $(find protos -name "*.proto")
     do
-        bname=`basename $proto .proto`
+        realbname=$(basename $proto .proto)
+        bname=$(echo $realbname | tr '.' '_' | tr '-' '_')
         mkdir -p protos/$bname
-        echo "Compiling $bname.proto ..."
-        tools/protobuf/bin/protoc --proto_path=$PWD/protos --go_out=./protos/$(basename $proto .proto) --go-grpc_out=./protos/$(basename $proto .proto) --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative --plugin=protoc-gen-go=$gopath/bin/protoc-gen-go --plugin=protoc-gen-go-grpc=$gopath/bin/protoc-gen-go-grpc $PWD/$proto
+        echo "Compiling $realbname.proto ..."
+        tools/protobuf/bin/protoc --proto_path=$PWD/protos --go_out=./protos/$bname --go-grpc_out=./protos/$bname --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative --plugin=protoc-gen-go=$gopath/bin/protoc-gen-go --plugin=protoc-gen-go-grpc=$gopath/bin/protoc-gen-go-grpc $PWD/$proto
         echo "done."
     done
 

@@ -25,6 +25,10 @@ type options interface {
 }
 
 func configureGrpcCall(ctx context.Context, conf *Configuration, options options, grpcOptions []grpc.CallOption, perRPCCredentials credentials.PerRPCCredentials) ([]grpc.CallOption, context.Context, context.CancelFunc) {
+	return configureGrpcCall_(ctx, conf, options, grpcOptions, perRPCCredentials, true)
+}
+
+func configureGrpcCall_(ctx context.Context, conf *Configuration, options options, grpcOptions []grpc.CallOption, perRPCCredentials credentials.PerRPCCredentials, forceForwardRequiresLeader bool) ([]grpc.CallOption, context.Context, context.CancelFunc) {
 	var duration time.Duration
 
 	if options.deadline() != nil {
@@ -50,7 +54,7 @@ func configureGrpcCall(ctx context.Context, conf *Configuration, options options
 		grpcOptions = append(grpcOptions, grpc.PerRPCCredsCallOption{Creds: perRPCCredentials})
 	}
 
-	if options.requiresLeader() || conf.NodePreference == NodePreferenceLeader {
+	if forceForwardRequiresLeader && (options.requiresLeader() || conf.NodePreference == NodePreferenceLeader) {
 		md := metadata.New(map[string]string{"requires-leader": "true"})
 		newCtx = metadata.NewIncomingContext(newCtx, md)
 	}
