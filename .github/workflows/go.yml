@@ -1,0 +1,71 @@
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * 0'  # Run every Sunday at midnight UTC
+
+jobs:
+  go-version:
+    name: Get Go version
+    uses: ./.github/workflows/go-version.yml
+
+  build:
+    name: Build
+    needs: go-version
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-2019, macos-latest ]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ needs.go-version.outputs.go_version }}
+      - name: Generate protos and build project
+        run: make generate-protos-and-build
+    outputs:
+      go_version: ${{ needs.go-version.outputs.go_version }}
+
+  tests:
+    needs:
+      - go-version
+      - build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [ previous-lts, lts, ci ]
+
+    name: Tests
+    uses: ./.github/workflows/tests.yml
+    with:
+      runtime: ${{ matrix.runtime }}
+      go_version: ${{ needs.go-version.outputs.go_version }}
+    secrets: inherit
+
+  plugins:
+    needs: tests
+    name: Plugins Tests
+    uses: ./.github/workflows/tests.yml
+    with:
+      runtime: qa
+      registry: docker.eventstore.com/eventstore-ee
+      image: eventstoredb-commercial
+      tag: 24.2.0-jammy
+      go_version: ${{ needs.go-version.outputs.go_version }}
+    secrets: inherit
+
+  linting:
+    needs: plugins
+    name: Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linting
+        run: go vet ./...
+      - name: Code formatting checks
+        run: diff -u <(echo -n) <(goimports -d ./)
