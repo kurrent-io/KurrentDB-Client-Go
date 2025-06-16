@@ -63,3 +63,4 @@ jobs:
               echo "image=${{ fromJSON(vars.KURRENTDB_DOCKER_IMAGES)[inputs.runtime].image }}" >> $GITHUB_OUTPUT
               echo "tag=${{ fromJSON(vars.KURRENTDB_DOCKER_IMAGES)[inputs.runtime].tag }}" >> $GITHUB_OUTPUT
             ;;
+          esac
