@@ -710,9 +710,11 @@ const (
 )
 
 type AppendStreamFailure struct {
-	StreamName string
-	Reason     string
-	ErrorCase  AppendStreamErrorCase
+	StreamName         string
+	Reason             string
+	StreamRevision     *uint64
+	TransactionMaxSize *int32
+	ErrorCase          AppendStreamErrorCase
 }
 
 type MultiAppendWriteResult struct {

@@ -9,7 +9,6 @@ import (
 	"github.com/kurrent-io/KurrentDB-Client-Go/protos/dynamic_value"
 	"io"
 	"iter"
-	"slices"
 	"strconv"
 
 	"github.com/kurrent-io/KurrentDB-Client-Go/protos/gossip"
@@ -229,12 +228,44 @@ func (client *Client) MultiStreamAppend(
 	}
 
 	if response.GetSuccess() != nil {
+		successes := make([]AppendStreamSuccess, 0)
+		for _, success := range response.GetSuccess().Output {
+			successes = append(successes, AppendStreamSuccess{
+				StreamName:     success.Stream,
+				StreamRevision: uint64(success.StreamRevision),
+				Position:       uint64(success.Position),
+			})
+		}
 
-	} else {
-
+		return &MultiAppendWriteResult{
+			Successes: successes,
+		}, nil
 	}
 
-	return &MultiAppendWriteResult{}, nil
+	failures := make([]AppendStreamFailure, 0)
+	for _, failure := range response.GetFailure().Output {
+		result := AppendStreamFailure{StreamName: failure.Stream}
+
+		switch value := failure.Error.(type) {
+		case *apiV2.AppendStreamFailure_AccessDenied:
+			result.Reason = value.AccessDenied.Reason
+			result.ErrorCase = AppendStreamErrorCaseAccessDenied
+		case *apiV2.AppendStreamFailure_StreamDeleted:
+			result.ErrorCase = AppendStreamErrorCaseStreamDeleted
+		case *apiV2.AppendStreamFailure_WrongExpectedRevision:
+			streamRevision := uint64(value.WrongExpectedRevision.StreamRevision)
+			result.ErrorCase = AppendStreamErrorCaseWrongExpectedRevision
+			result.StreamRevision = &streamRevision
+		case *apiV2.AppendStreamFailure_TransactionMaxSizeExceeded:
+			maxSize := value.TransactionMaxSizeExceeded.MaxSize
+			result.ErrorCase = AppendStreamErrorCaseTransactionMaxSizeExceeded
+			result.TransactionMaxSize = &maxSize
+		}
+
+		failures = append(failures, result)
+	}
+
+	return &MultiAppendWriteResult{Failures: failures}, nil
 }
 
 // SetStreamMetadata Sets the metadata for a stream.
