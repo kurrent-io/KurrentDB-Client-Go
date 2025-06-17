@@ -166,6 +166,11 @@ func (client *Client) MultiStreamAppend(
 	if err != nil {
 		return nil, err
 	}
+
+	if !handle.SupportsFeature(featureMultiStreamAppend) {
+		return nil, unsupportedFeatureError()
+	}
+
 	streamsClient := apiV2.NewStreamsServiceClient(handle.Connection())
 	var headers, trailers metadata.MD
 	callOptions := []grpc.CallOption{grpc.Header(&headers), grpc.Trailer(&trailers)}
