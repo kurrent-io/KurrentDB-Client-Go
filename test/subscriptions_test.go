@@ -2,12 +2,13 @@ package test
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/suite"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 )
@@ -246,7 +247,7 @@ func (s *SubscriptionTestSuite) TestSubscriptionToStreamCaughtUp() {
 	fixture := s.fixture
 	client := fixture.Client()
 
-	const minSupportedVersion = 23
+	const minSupportedVersion = 24
 	const expectedEventCount = 10
 	const testTimeout = 1 * time.Minute
 
