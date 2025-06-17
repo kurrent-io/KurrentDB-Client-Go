@@ -432,10 +432,10 @@ func getSupportedMethods(ctx context.Context, conf *Configuration, conn *grpc.Cl
 				info.featureFlags |= featurePersistentSubscriptionList
 			case "restartsubsystem":
 				info.featureFlags |= featurePersistentSubscriptionRestartSubsystem
-			case "multistreamappendsession":
-				info.featureFlags |= featureMultiStreamAppend
 			default:
 			}
+		case "multistreamappendsession":
+			info.featureFlags |= featureMultiStreamAppend
 		default:
 		}
 	}
