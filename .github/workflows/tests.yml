@@ -3,15 +3,7 @@ name: Tests
 on:
   workflow_call:
     inputs:
-      registry:
-        required: true
-        type: string
-
-      tag:
-        required: true
-        type: string
-
-      image:
+      runtime:
         required: true
         type: string
 
@@ -19,8 +11,32 @@ on:
         required: true
         type: string
 
+      registry:
+        description: "When in QA mode, the Docker registry to use"
+        type: string
+        required: false
+
+      image:
+        description: "When in QA mode, the Docker image to use"
+        type: string
+        required: false
+
+      tag:
+        description: "When in QA mode, the Docker image tag to use"
+        type: string
+        required: false
+
 jobs:
+  load_configuration:
+    uses: ./.github/workflows/load-configuration.yml
+    with:
+      runtime: ${{ inputs.runtime }}
+      registry: ${{ inputs.registry }}
+      image: ${{ inputs.image }}
+      tag: ${{ inputs.tag }}
+
   test:
+    needs: load_configuration
     name: Test
     timeout-minutes: 10
 
@@ -49,9 +65,9 @@ jobs:
       - name: Start KurrentDB
         run: make start-kurrentdb
         env:
-          EVENTSTORE_DOCKER_TAG: ${{ inputs.tag }}
-          EVENTSTORE_DOCKER_REGISTRY: ${{ inputs.registry }}
-          EVENTSTORE_DOCKER_IMAGE: ${{ inputs.image }}
+          KURRENTDB_DOCKER_REGISTRY: ${{ needs.load_configuration.outputs.registry }}
+          KURRENTDB_DOCKER_IMAGE: ${{ needs.load_configuration.outputs.image }}
+          KURRENTDB_DOCKER_TAG: ${{ needs.load_configuration.outputs.tag }}
 
       - name: Run Go Tests
         run: go test --count=1 -v ./test -run Test${{ matrix.test }}

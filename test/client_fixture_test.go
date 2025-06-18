@@ -1,4 +1,4 @@
-package test_test
+package test
 
 import (
 	"context"
@@ -99,6 +99,17 @@ func (f *ClientFixture) CreateTestEvent(eventType ...string) kurrentdb.EventData
 	}
 
 	return event
+}
+
+func (f *ClientFixture) CreateTestEventsOnly(eventType string, count int) []kurrentdb.EventData {
+
+	events := make([]kurrentdb.EventData, count)
+
+	for i := 0; i < count; i++ {
+		events[i] = f.CreateTestEvent(eventType)
+	}
+
+	return events
 }
 
 func (f *ClientFixture) CreateTestEvents(streamId string, count uint32) []kurrentdb.EventData {

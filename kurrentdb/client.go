@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/dynamic_value"
 	"io"
+	"iter"
 	"strconv"
 
 	"github.com/kurrent-io/KurrentDB-Client-Go/protos/gossip"
@@ -16,6 +18,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams"
+	apiV2 "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams_v2"
 )
 
 // Client Represents a client to a single node. A client instance maintains a full duplex communication to KurrentDB.
@@ -151,6 +154,123 @@ func (client *Client) AppendToStream(
 		PreparePosition:     0,
 		NextExpectedVersion: 1,
 	}, nil
+}
+
+func (client *Client) MultiStreamAppend(
+	context context.Context,
+	requests iter.Seq[AppendStreamRequest],
+	opts AppendToStreamOptions,
+) (*MultiAppendWriteResult, error) {
+	opts.setDefaults()
+	handle, err := client.grpcClient.getConnectionHandle()
+	if err != nil {
+		return nil, err
+	}
+
+	if !handle.SupportsFeature(featureMultiStreamAppend) {
+		return nil, unsupportedFeatureError()
+	}
+
+	streamsClient := apiV2.NewStreamsServiceClient(handle.Connection())
+	var headers, trailers metadata.MD
+	callOptions := []grpc.CallOption{grpc.Header(&headers), grpc.Trailer(&trailers)}
+	callOptions, ctx, cancel := configureGrpcCall_(context, client.config, &opts, callOptions, client.grpcClient.perRPCCredentials, false)
+	defer cancel()
+
+	appendOperation, err := streamsClient.MultiStreamAppendSession(ctx, callOptions...)
+	if err != nil {
+		err = client.grpcClient.handleError(handle, trailers, err)
+		return nil, fmt.Errorf("could not construct multi stream append session. reason: %w", err)
+	}
+
+	for request := range requests {
+		records := make([]*apiV2.AppendRecord, 0)
+
+		for event := range request.Events {
+			properties := make(map[string]*dynamic_value.DynamicValue)
+
+			properties["$schema.name"] = &dynamic_value.DynamicValue{
+				Kind: &dynamic_value.DynamicValue_BytesValue{
+					BytesValue: []byte(event.EventType),
+				},
+			}
+
+			contentType := "application/octet-stream"
+			if event.ContentType == ContentTypeJson {
+				contentType = "application/json"
+			}
+
+			properties["$schema.data-format"] = &dynamic_value.DynamicValue{
+				Kind: &dynamic_value.DynamicValue_BytesValue{
+					BytesValue: []byte(contentType),
+				},
+			}
+
+			recordId := event.EventID.String()
+
+			records = append(records, &apiV2.AppendRecord{
+				RecordId:   &recordId,
+				Properties: properties,
+				Data:       event.Data,
+			})
+		}
+
+		expectedRevision := request.ExpectedStreamState.toRawInt64()
+		if err = appendOperation.Send(&apiV2.AppendStreamRequest{
+			Stream:           request.StreamName,
+			Records:          records,
+			ExpectedRevision: &expectedRevision,
+		}); err != nil {
+			err = client.grpcClient.handleError(handle, trailers, err)
+			return nil, fmt.Errorf("could not send multi stream append session. reason: %w", err)
+		}
+	}
+
+	response, err := appendOperation.CloseAndRecv()
+	if err != nil {
+		err = client.grpcClient.handleError(handle, trailers, err)
+		return nil, fmt.Errorf("could not close multi stream append session. reason: %w", err)
+	}
+
+	if response.GetSuccess() != nil {
+		successes := make([]AppendStreamSuccess, 0)
+		for _, success := range response.GetSuccess().Output {
+			successes = append(successes, AppendStreamSuccess{
+				StreamName:     success.Stream,
+				StreamRevision: uint64(success.StreamRevision),
+				Position:       uint64(success.Position),
+			})
+		}
+
+		return &MultiAppendWriteResult{
+			Successes: successes,
+		}, nil
+	}
+
+	failures := make([]AppendStreamFailure, 0)
+	for _, failure := range response.GetFailure().Output {
+		result := AppendStreamFailure{StreamName: failure.Stream}
+
+		switch value := failure.Error.(type) {
+		case *apiV2.AppendStreamFailure_AccessDenied:
+			result.Reason = value.AccessDenied.Reason
+			result.ErrorCase = AppendStreamErrorCaseAccessDenied
+		case *apiV2.AppendStreamFailure_StreamDeleted:
+			result.ErrorCase = AppendStreamErrorCaseStreamDeleted
+		case *apiV2.AppendStreamFailure_WrongExpectedRevision:
+			streamRevision := uint64(value.WrongExpectedRevision.StreamRevision)
+			result.ErrorCase = AppendStreamErrorCaseWrongExpectedRevision
+			result.StreamRevision = &streamRevision
+		case *apiV2.AppendStreamFailure_TransactionMaxSizeExceeded:
+			maxSize := value.TransactionMaxSizeExceeded.MaxSize
+			result.ErrorCase = AppendStreamErrorCaseTransactionMaxSizeExceeded
+			result.TransactionMaxSize = &maxSize
+		}
+
+		failures = append(failures, result)
+	}
+
+	return &MultiAppendWriteResult{Failures: failures}, nil
 }
 
 // SetStreamMetadata Sets the metadata for a stream.

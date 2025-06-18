@@ -359,6 +359,7 @@ const (
 	featurePersistentSubscriptionRestartSubsystem = 8
 	featurePersistentSubscriptionGetInfo          = 16
 	featurePersistentSubscriptionToAll            = 32
+	featureMultiStreamAppend                      = 64
 	featurePersistentSubscriptionManagement       = featurePersistentSubscriptionList | featurePersistentSubscriptionGetInfo | featurePersistentSubscriptionRestartSubsystem | featurePersistentSubscriptionReplay
 )
 
@@ -434,6 +435,9 @@ func getSupportedMethods(ctx context.Context, conf *Configuration, conn *grpc.Cl
 			default:
 			}
 		default:
+			if method.MethodName == "multistreamappendsession" {
+				info.featureFlags |= featureMultiStreamAppend
+			}
 		}
 	}
 
