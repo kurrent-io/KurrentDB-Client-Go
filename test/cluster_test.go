@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/gossip"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/gossip"
 	"net/http"
 	"testing"
 	"time"

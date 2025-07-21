@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	gossipApi "github.com/kurrent-io/KurrentDB-Client-Go/protos/gossip"
-	server_features "github.com/kurrent-io/KurrentDB-Client-Go/protos/serverfeatures"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
+	gossipApi "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/gossip"
+	server_features "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/serverfeatures"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"

@@ -6,19 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/dynamic_value"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/gossip"
+	persistentProto "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/persistent"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/core"
+	apiV2 "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streams/streams"
 	"io"
 	"iter"
 	"strconv"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/gossip"
-	persistentProto "github.com/kurrent-io/KurrentDB-Client-Go/protos/persistent"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
+	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/streams"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-
-	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams"
-	apiV2 "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams_v2"
 )
 
 // Client Represents a client to a single node. A client instance maintains a full duplex communication to KurrentDB.
@@ -187,22 +186,22 @@ func (client *Client) MultiStreamAppend(
 		records := make([]*apiV2.AppendRecord, 0)
 
 		for event := range request.Events {
-			properties := make(map[string]*dynamic_value.DynamicValue)
+			properties := make(map[string]*core.DynamicValue)
 
-			properties["$schema.name"] = &dynamic_value.DynamicValue{
-				Kind: &dynamic_value.DynamicValue_BytesValue{
-					BytesValue: []byte(event.EventType),
+			properties["$schema.name"] = &core.DynamicValue{
+				Kind: &core.DynamicValue_StringValue{
+					StringValue: event.EventType,
 				},
 			}
 
-			contentType := "application/octet-stream"
+			contentType := "Bytes"
 			if event.ContentType == ContentTypeJson {
-				contentType = "application/json"
+				contentType = "Json"
 			}
 
-			properties["$schema.data-format"] = &dynamic_value.DynamicValue{
-				Kind: &dynamic_value.DynamicValue_BytesValue{
-					BytesValue: []byte(contentType),
+			properties["$schema.data-format"] = &core.DynamicValue{
+				Kind: &core.DynamicValue_StringValue{
+					StringValue: contentType,
 				},
 			}
 
@@ -253,16 +252,16 @@ func (client *Client) MultiStreamAppend(
 
 		switch value := failure.Error.(type) {
 		case *apiV2.AppendStreamFailure_AccessDenied:
-			result.Reason = value.AccessDenied.Reason
+			result.Reason = value.AccessDenied.String()
 			result.ErrorCase = AppendStreamErrorCaseAccessDenied
 		case *apiV2.AppendStreamFailure_StreamDeleted:
 			result.ErrorCase = AppendStreamErrorCaseStreamDeleted
-		case *apiV2.AppendStreamFailure_WrongExpectedRevision:
-			streamRevision := uint64(value.WrongExpectedRevision.StreamRevision)
-			result.ErrorCase = AppendStreamErrorCaseWrongExpectedRevision
+		case *apiV2.AppendStreamFailure_StreamRevisionConflict:
+			streamRevision := uint64(value.StreamRevisionConflict.GetStreamRevision())
+			result.ErrorCase = AppendStreamErrorCaseStreamRevisionConflict
 			result.StreamRevision = &streamRevision
 		case *apiV2.AppendStreamFailure_TransactionMaxSizeExceeded:
-			maxSize := value.TransactionMaxSizeExceeded.MaxSize
+			maxSize := value.TransactionMaxSizeExceeded.GetMaxSize()
 			result.ErrorCase = AppendStreamErrorCaseTransactionMaxSizeExceeded
 			result.TransactionMaxSize = &maxSize
 		}

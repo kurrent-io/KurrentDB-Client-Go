@@ -703,7 +703,7 @@ type AppendStreamErrorCase uint64
 
 const (
 	AppendStreamErrorCaseUnknown AppendStreamErrorCase = iota
-	AppendStreamErrorCaseWrongExpectedRevision
+	AppendStreamErrorCaseStreamRevisionConflict
 	AppendStreamErrorCaseAccessDenied
 	AppendStreamErrorCaseStreamDeleted
 	AppendStreamErrorCaseTransactionMaxSizeExceeded
@@ -713,7 +713,7 @@ type AppendStreamFailure struct {
 	StreamName         string
 	Reason             string
 	StreamRevision     *uint64
-	TransactionMaxSize *int32
+	TransactionMaxSize *uint32
 	ErrorCase          AppendStreamErrorCase
 }
 

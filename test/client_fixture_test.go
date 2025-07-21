@@ -194,7 +194,7 @@ func (f *ClientFixture) IsKurrentDbVersion20() bool {
 }
 
 func isKurrentDbVersion(predicate VersionPredicateFn) bool {
-	value, exists := os.LookupEnv("EVENTSTORE_DOCKER_TAG")
+	value, exists := os.LookupEnv("KURRENTDB_DOCKER_TAG")
 	if !exists || value == "ci" {
 		return false
 	}

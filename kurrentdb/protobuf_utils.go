@@ -3,15 +3,15 @@ package kurrentdb
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/persistent"
 	"log"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/persistent"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
-	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/streams"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
+	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/streams"
 )
 
 type SubscriptionFilterOptions struct {

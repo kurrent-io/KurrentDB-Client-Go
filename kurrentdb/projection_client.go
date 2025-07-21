@@ -3,10 +3,10 @@ package kurrentdb
 import (
 	"context"
 	"errors"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/projections"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
 	"io"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/projections"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
