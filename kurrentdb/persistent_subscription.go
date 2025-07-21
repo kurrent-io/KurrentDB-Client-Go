@@ -3,14 +3,13 @@ package kurrentdb
 import (
 	"context"
 	"fmt"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/persistent"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
 	"sync/atomic"
 
 	"github.com/google/uuid"
 
 	"sync"
-
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/persistent"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
 )
 
 // NackAction persistent subscription acknowledgement error type.

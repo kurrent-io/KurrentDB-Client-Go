@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	gossipApi "github.com/kurrent-io/KurrentDB-Client-Go/protos/gossip"
-	server_features "github.com/kurrent-io/KurrentDB-Client-Go/protos/serverfeatures"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
+	gossipApi "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/gossip"
+	server_features "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/serverfeatures"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -359,6 +359,7 @@ const (
 	featurePersistentSubscriptionRestartSubsystem = 8
 	featurePersistentSubscriptionGetInfo          = 16
 	featurePersistentSubscriptionToAll            = 32
+	featureMultiStreamAppend                      = 64
 	featurePersistentSubscriptionManagement       = featurePersistentSubscriptionList | featurePersistentSubscriptionGetInfo | featurePersistentSubscriptionRestartSubsystem | featurePersistentSubscriptionReplay
 )
 
@@ -434,6 +435,9 @@ func getSupportedMethods(ctx context.Context, conf *Configuration, conn *grpc.Cl
 			default:
 			}
 		default:
+			if method.MethodName == "multistreamappendsession" {
+				info.featureFlags |= featureMultiStreamAppend
+			}
 		}
 	}
 

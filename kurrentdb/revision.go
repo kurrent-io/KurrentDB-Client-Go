@@ -14,17 +14,21 @@ type NoStream struct{}
 // StreamState except Any. When using Any, the KurrentDB server will do its best to assure idempotency but
 // will not guarantee it.
 type StreamState interface {
-	isExpectedRevision()
+	toRawInt64() int64
 }
 
-func (r Any) isExpectedRevision() {
+func (r Any) toRawInt64() int64 {
+	return -2
 }
 
-func (r StreamExists) isExpectedRevision() {
+func (r StreamExists) toRawInt64() int64 {
+	return -4
 }
 
-func (r NoStream) isExpectedRevision() {
+func (r NoStream) toRawInt64() int64 {
+	return -1
 }
 
-func (r StreamRevision) isExpectedRevision() {
+func (r StreamRevision) toRawInt64() int64 {
+	return int64(r.Value)
 }

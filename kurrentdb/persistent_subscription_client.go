@@ -3,9 +3,9 @@ package kurrentdb
 import (
 	"context"
 	"fmt"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/persistent"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
 
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/persistent"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/shared"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
