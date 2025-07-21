@@ -94,11 +94,11 @@ For example, to use the commercial image
 `docker.kurrentio/eventstore-ee/eventstoredb-commercial:23.10.5-commercialb-bookworm-slim`, configure your environment
 with:
 
-| Variable Name                | Example Value                     |
-|------------------------------|-----------------------------------|
-| `EVENTSTORE_DOCKER_REGISTRY` | docker.kurrentio/eventstore-ee    |
-| `EVENTSTORE_DOCKER_IMAGE`    | eventstoredb-commercial           |
-| `EVENTSTORE_DOCKER_TAG`      | 23.10.5-commercialb-bookworm-slim |
+| Variable Name               | Example Value                     |
+|-----------------------------|-----------------------------------|
+| `KURRENTDB_DOCKER_REGISTRY` | docker.kurrentio/eventstore-ee    |
+| `KURRENTDB_DOCKER_IMAGE`    | eventstoredb-commercial           |
+| `KURRENTDB_DOCKER_TAG`      | 23.10.5-commercialb-bookworm-slim |
 
 These variables combine to form the complete image reference used during testing.
 
