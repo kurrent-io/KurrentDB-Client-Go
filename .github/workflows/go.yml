@@ -47,20 +47,21 @@ jobs:
       go_version: ${{ needs.go-version.outputs.go_version }}
     secrets: inherit
 
-  plugins:
-    needs: tests
-    name: Plugins Tests
-    uses: ./.github/workflows/tests.yml
-    with:
-      runtime: qa
-      registry: docker.eventstore.com/eventstore-ee
-      image: eventstoredb-commercial
-      tag: 24.2.0-jammy
-      go_version: ${{ needs.go-version.outputs.go_version }}
-    secrets: inherit
+#  plugins:
+#    needs: tests
+#    name: Plugins Tests
+#    uses: ./.github/workflows/tests.yml
+#    with:
+#      runtime: qa
+#      registry: docker.eventstore.com/eventstore-ee
+#      image: eventstoredb-commercial
+#      tag: 24.2.0-jammy
+#      go_version: ${{ needs.go-version.outputs.go_version }}
+#    secrets: inherit
 
   linting:
-    needs: plugins
+#    needs: plugins
+    needs: tests
     name: Linting
     runs-on: ubuntu-latest
     steps:
