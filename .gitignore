@@ -28,3 +28,7 @@ _testmain.go
 
 certs/
 tools/
+
+.temp
+.cache
+node_modules
