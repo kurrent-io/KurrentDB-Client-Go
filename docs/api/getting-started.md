@@ -1,9 +1,5 @@
 ---
 order: 1
-head:
-  - - title
-    - {}
-    - Getting Started | NodeJS | Clients | EventStoreDB Docs
 ---
 
 # Getting started
