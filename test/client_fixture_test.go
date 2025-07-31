@@ -84,39 +84,53 @@ func (f *ClientFixture) ProjectionClient() *kurrentdb.ProjectionClient {
 	return kurrentdb.NewProjectionClientFromExistingClient(f.client)
 }
 
-func (f *ClientFixture) CreateTestEvent(eventType ...string) kurrentdb.EventData {
-	actualEventType := "TestEvent"
-	if len(eventType) > 0 {
-		actualEventType = eventType[0]
+type TestEventOptions struct {
+	EventType   string
+	ContentType kurrentdb.ContentType
+	Data        []byte
+	Metadata    []byte
+}
+
+func (f *ClientFixture) CreateTestEvent(options ...TestEventOptions) kurrentdb.EventData {
+	eventType := "TestEvent"
+	contentType := kurrentdb.ContentTypeBinary
+	data := []byte{0xb, 0xe, 0xe, 0xf}
+	var metadata []byte
+
+	if len(options) > 0 {
+		opt := options[0]
+		if opt.EventType != "" {
+			eventType = opt.EventType
+		}
+		if opt.ContentType != 0 {
+			contentType = opt.ContentType
+		}
+		if opt.Data != nil {
+			data = opt.Data
+		}
+		if opt.Metadata != nil {
+			metadata = opt.Metadata
+		}
 	}
 
 	event := kurrentdb.EventData{
-		EventType:   actualEventType,
-		ContentType: kurrentdb.ContentTypeBinary,
+		EventType:   eventType,
+		ContentType: contentType,
 		EventID:     uuid.New(),
-		Data:        []byte{0xb, 0xe, 0xe, 0xf},
-		Metadata:    []byte{0xd, 0xe, 0xa, 0xd},
+		Data:        data,
+		Metadata:    metadata,
 	}
 
 	return event
-}
-
-func (f *ClientFixture) CreateTestEventsOnly(eventType string, count int) []kurrentdb.EventData {
-
-	events := make([]kurrentdb.EventData, count)
-
-	for i := 0; i < count; i++ {
-		events[i] = f.CreateTestEvent(eventType)
-	}
-
-	return events
 }
 
 func (f *ClientFixture) CreateTestEvents(streamId string, count uint32) []kurrentdb.EventData {
 	events := make([]kurrentdb.EventData, count)
 	var i uint32 = 0
 	for ; i < count; i++ {
-		events[i] = f.CreateTestEvent(fmt.Sprintf("TestEvent-%d", i+1))
+		events[i] = f.CreateTestEvent(TestEventOptions{
+			EventType: fmt.Sprintf("TestEvent-%d", i+1),
+		})
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
