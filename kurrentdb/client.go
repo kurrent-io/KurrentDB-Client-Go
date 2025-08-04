@@ -11,9 +11,13 @@ import (
 	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
 	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/core"
 	apiV2 "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streams/streams"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"iter"
 	"strconv"
+	"time"
 
 	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/streams"
 	"google.golang.org/grpc"
@@ -158,9 +162,21 @@ func (client *Client) AppendToStream(
 func (client *Client) MultiStreamAppend(
 	context context.Context,
 	requests iter.Seq[AppendStreamRequest],
-	opts AppendToStreamOptions,
 ) (*MultiAppendWriteResult, error) {
+	var opts AppendToStreamOptions
 	opts.setDefaults()
+
+	for request := range requests {
+		for event := range request.Events {
+			if len(event.Metadata) > 0 {
+				var metadataMap map[string]interface{}
+				if err := json.Unmarshal(event.Metadata, &metadataMap); err != nil {
+					return nil, fmt.Errorf("event metadata must be valid JSON: %w", err)
+				}
+			}
+		}
+	}
+
 	handle, err := client.grpcClient.getConnectionHandle()
 	if err != nil {
 		return nil, err
@@ -203,6 +219,14 @@ func (client *Client) MultiStreamAppend(
 				Kind: &core.DynamicValue_StringValue{
 					StringValue: contentType,
 				},
+			}
+
+			metadataProperties, err := mapMetadataToDynamicValue(event.Metadata)
+			if err != nil {
+				return nil, fmt.Errorf("could not map event metadata to dynamic values: %w", err)
+			}
+			for key, value := range metadataProperties {
+				properties[key] = value
 			}
 
 			recordId := event.EventID.String()
@@ -912,4 +936,99 @@ func (client *Client) Gossip(ctx context.Context) ([]*gossip.MemberInfo, error) 
 	}
 
 	return clusterInfo.Members, nil
+}
+
+func mapToDynamicValue(value interface{}) *core.DynamicValue {
+	switch v := value.(type) {
+	case nil:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_NullValue{
+				NullValue: structpb.NullValue_NULL_VALUE,
+			},
+		}
+	case string:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_StringValue{
+				StringValue: v,
+			},
+		}
+	case bool:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_BooleanValue{
+				BooleanValue: v,
+			},
+		}
+	case int:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_Int64Value{
+				Int64Value: int64(v),
+			},
+		}
+	case int32:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_Int32Value{
+				Int32Value: v,
+			},
+		}
+	case int64:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_Int64Value{
+				Int64Value: v,
+			},
+		}
+	case float32:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_FloatValue{
+				FloatValue: v,
+			},
+		}
+	case float64:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_DoubleValue{
+				DoubleValue: v,
+			},
+		}
+	case time.Time:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_TimestampValue{
+				TimestampValue: timestamppb.New(v),
+			},
+		}
+	case time.Duration:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_DurationValue{
+				DurationValue: durationpb.New(v),
+			},
+		}
+	case []byte:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_BytesValue{
+				BytesValue: v,
+			},
+		}
+	default:
+		return &core.DynamicValue{
+			Kind: &core.DynamicValue_StringValue{
+				StringValue: fmt.Sprintf("%v", v),
+			},
+		}
+	}
+}
+
+func mapMetadataToDynamicValue(metadata []byte) (map[string]*core.DynamicValue, error) {
+	if len(metadata) == 0 {
+		return make(map[string]*core.DynamicValue), nil
+	}
+
+	var metadataMap map[string]interface{}
+	if err := json.Unmarshal(metadata, &metadataMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata as JSON: %w", err)
+	}
+
+	properties := make(map[string]*core.DynamicValue)
+	for key, value := range metadataMap {
+		properties[key] = mapToDynamicValue(value)
+	}
+
+	return properties, nil
 }
