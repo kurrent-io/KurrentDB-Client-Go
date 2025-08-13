@@ -224,3 +224,108 @@ result, err := db.AppendToStream(
   event
 )
 ```
+
+## Append to multiple streams
+
+::: note
+This feature is only available in KurrentDB 25.1 and later.
+:::
+
+You can append events to multiple streams in a single atomic operation. Either all streams are updated, or the entire operation fails.
+
+The `MultiStreamAppend` method accepts a collection of `AppendStreamRequest` objects and returns a `MultiAppendWriteResult`. Each `AppendStreamRequest` contains:
+
+- **StreamName** - The name of the stream
+- **ExpectedStreamState** - The expected state of the stream for optimistic concurrency control
+- **Events** - A collection of `EventData` objects to append
+
+The operation returns either:
+- `AppendStreamSuccess` - Successful append results for all streams
+- `AppendStreamFailure` - Specific exceptions for any failed operations
+
+::: warning
+Event metadata in `EventData` must be valid JSON objects. This requirement will
+be removed in a future major release.
+:::
+
+Here's a basic example of appending events to multiple streams:
+
+```go
+type OrderCreated struct {
+	OrderId string  `json:"orderId"`
+	Amount  float64 `json:"amount"`
+}
+
+type PaymentProcessed struct {
+	PaymentId string  `json:"paymentId"`
+	Amount    float64 `json:"amount"`
+	Method    string  `json:"method"`
+}
+
+metadata := map[string]interface{}{
+	"source": "web-store",
+}
+metadataBytes, _ := json.Marshal(metadata)
+
+orderData, _ := json.Marshal(OrderCreated{OrderId: "12345", Amount: 99.99})
+paymentData, _ := json.Marshal(PaymentProcessed{PaymentId: "PAY-789", Amount: 99.99, Method: "credit_card"})
+
+requests := []kurrentdb.AppendStreamRequest{
+	{
+		StreamName: "order-stream-1",
+		Events: slices.Values([]kurrentdb.EventData{{
+			EventID:     uuid.New(),
+			EventType:   "OrderCreated",
+			ContentType: kurrentdb.ContentTypeJson,
+			Data:        orderData,
+			Metadata:    metadataBytes,
+		}}),
+		ExpectedStreamState: kurrentdb.Any{},
+	},
+	{
+		StreamName: "payment-stream-1",
+		Events: slices.Values([]kurrentdb.EventData{{
+			EventID:     uuid.New(),
+			EventType:   "PaymentProcessed",
+			ContentType: kurrentdb.ContentTypeJson,
+			Data:        paymentData,
+			Metadata:    metadataBytes,
+		}}),
+		ExpectedStreamState: kurrentdb.Any{},
+	},
+}
+
+result, err := client.MultiStreamAppend(context.Background(), slices.Values(requests))
+if err != nil {
+	panic(err)
+}
+
+if result.IsSuccessful() {
+	for _, success := range result.Successes {
+		fmt.Printf("Stream '%s' updated at position %d\n", success.StreamName, success.Position)
+	}
+}
+
+```
+
+If the operation doesn't succeed, you can handle the failures as follows:
+
+```go
+if result.HasFailed() {
+  for _, failure := range result.Failures {
+    fmt.Printf("Error in stream '%s': ", failure.StreamName)
+    switch failure.ErrorCase {
+    case kurrentdb.AppendStreamErrorCaseStreamRevisionConflict:
+      fmt.Printf("version conflict (current: %d)\n", *failure.StreamRevision)
+    case kurrentdb.AppendStreamErrorCaseAccessDenied:
+      fmt.Printf("access denied - %s\n", failure.Reason)
+    case kurrentdb.AppendStreamErrorCaseStreamDeleted:
+      fmt.Printf("stream deleted\n")
+    case kurrentdb.AppendStreamErrorCaseTransactionMaxSizeExceeded:
+      fmt.Printf("transaction too large (max: %d bytes)\n", *failure.TransactionMaxSize)
+    default:
+      fmt.Printf("unexpected error\n")
+    }
+  }
+}
+```
