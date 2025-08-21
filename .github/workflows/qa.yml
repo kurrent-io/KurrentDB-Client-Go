@@ -20,17 +20,18 @@ on:
         description: "The docker registry to use"
 
 jobs:
-  build-and-lint:
-    name: Build and lint
-    uses: ./.github/workflows/build-and-lint.yml
+  go-version:
+    name: Get Go version
+    uses: ./.github/workflows/go-version.yml
 
   test:
-    needs: build-and-lint
+    needs: go-version
     name: QA
     uses: ./.github/workflows/tests.yml
     with:
+      runtime: qa
+      registry: ${{ inputs.registry }}
       image: ${{ inputs.image }}
       tag: ${{ inputs.tag }}
-      registry: ${{ inputs.registry }}
       go_version: ${{ needs.go-version.outputs.go_version }}
     secrets: inherit
