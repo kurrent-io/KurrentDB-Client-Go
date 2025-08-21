@@ -928,19 +928,19 @@ func createPersistentSubscriptionSettingsProto(
 	}
 
 	return &persistent.CreateReq_Settings{
-		Revision:              revision,
-		ResolveLinks:          settings.ResolveLinkTos,
-		ExtraStatistics:       settings.ExtraStatistics,
-		MaxRetryCount:         settings.MaxRetryCount,
-		MinCheckpointCount:    settings.CheckpointLowerBound,
-		MaxCheckpointCount:    settings.CheckpointUpperBound,
-		MaxSubscriberCount:    settings.MaxSubscriberCount,
-		LiveBufferSize:        settings.LiveBufferSize,
-		ReadBatchSize:         settings.ReadBatchSize,
-		HistoryBufferSize:     settings.HistoryBufferSize,
-		NamedConsumerStrategy: consumerStrategyProto(settings.ConsumerStrategyName),
-		MessageTimeout:        messageTimeOutInMsProto(settings.MessageTimeout),
-		CheckpointAfter:       checkpointAfterMsProto(settings.CheckpointAfter),
+		Revision:           revision,
+		ResolveLinks:       settings.ResolveLinkTos,
+		ExtraStatistics:    settings.ExtraStatistics,
+		MaxRetryCount:      settings.MaxRetryCount,
+		MinCheckpointCount: settings.CheckpointLowerBound,
+		MaxCheckpointCount: settings.CheckpointUpperBound,
+		MaxSubscriberCount: settings.MaxSubscriberCount,
+		LiveBufferSize:     settings.LiveBufferSize,
+		ReadBatchSize:      settings.ReadBatchSize,
+		HistoryBufferSize:  settings.HistoryBufferSize,
+		ConsumerStrategy:   string(settings.ConsumerStrategyName),
+		MessageTimeout:     messageTimeOutInMsProto(settings.MessageTimeout),
+		CheckpointAfter:    checkpointAfterMsProto(settings.CheckpointAfter),
 	}
 }
 
@@ -952,6 +952,8 @@ func consumerStrategyProto(strategy ConsumerStrategy) persistent.CreateReq_Consu
 		return persistent.CreateReq_Pinned
 	case ConsumerStrategyRoundRobin:
 		return persistent.CreateReq_RoundRobin
+	case ConsumerStrategyPinnedByCorrelation:
+		panic(fmt.Sprintf("PinnedByCorrelation requires database version 21.10.1 or later"))
 	default:
 		panic(fmt.Sprintf("Could not map strategy %v to proto", strategy))
 	}

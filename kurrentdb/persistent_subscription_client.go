@@ -71,6 +71,15 @@ func (client *persistentClient) CreateStreamSubscription(
 	settings PersistentSubscriptionSettings,
 ) error {
 	createSubscriptionConfig := createPersistentRequestProto(streamName, groupName, position, settings)
+
+	serverVersion, _ := handle.GetServerVersion()
+	if serverVersion != nil && serverVersion.IsBelow(21, 10, 1) {
+		opts := createSubscriptionConfig.Options
+		if opts != nil && opts.Settings != nil {
+			opts.Settings.NamedConsumerStrategy = consumerStrategyProto(settings.ConsumerStrategyName)
+		}
+	}
+
 	var headers, trailers metadata.MD
 	callOptions := []grpc.CallOption{grpc.Header(&headers), grpc.Trailer(&trailers)}
 	callOptions, ctx, cancel := configureGrpcCall(parent, conf, options, callOptions, client.inner.perRPCCredentials)
@@ -96,6 +105,14 @@ func (client *persistentClient) CreateAllSubscription(
 	protoConfig, err := createPersistentRequestAllOptionsProto(groupName, position, settings, filter)
 	if err != nil {
 		return err
+	}
+
+	serverVersion, _ := handle.GetServerVersion()
+	if serverVersion != nil && serverVersion.IsBelow(21, 10, 1) {
+		opts := protoConfig.Options
+		if opts != nil && opts.Settings != nil {
+			opts.Settings.NamedConsumerStrategy = consumerStrategyProto(settings.ConsumerStrategyName)
+		}
 	}
 
 	var headers, trailers metadata.MD
