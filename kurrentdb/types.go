@@ -29,6 +29,10 @@ const (
 	// this strategy is to decrease the likelihood of concurrency and ordering issues while maintaining load balancing.
 	// This is not a guarantee, and you should handle the usual ordering and concurrency issues.
 	ConsumerStrategyPinned ConsumerStrategy = "Pinned"
+
+	// ConsumerStrategyPinnedByCorrelation is similar to the Pinned strategy, but instead of using the source stream id to
+	// bucket the messages, it distributes the events based on the event's correlationId.
+	ConsumerStrategyPinnedByCorrelation ConsumerStrategy = "PinnedByCorrelation"
 )
 
 // PersistentSubscriptionSettings persistent subscription settings.

@@ -256,6 +256,38 @@ func (s *PersistentSubscriptionSuite) TestPersistentAllCreate() {
 	s.Require().NoError(err)
 }
 
+func (s *PersistentSubscriptionSuite) TestPersistentAllCreateWithStrategy() {
+	groupName := s.fixture.NewGroupId()
+
+	settings := kurrentdb.SubscriptionSettingsDefault()
+	settings.ConsumerStrategyName = kurrentdb.ConsumerStrategyPinnedByCorrelation
+
+	err := s.client.CreatePersistentSubscriptionToAll(
+		context.Background(),
+		groupName,
+		kurrentdb.PersistentAllSubscriptionOptions{
+			Settings: &settings,
+		},
+	)
+
+	if err != nil {
+		if kurrentDbError, ok := kurrentdb.FromError(err); ok && kurrentDbError.Code() == kurrentdb.ErrorCodeUnsupportedFeature {
+			s.T().Skip("Feature not supported in this version")
+		}
+	}
+
+	s.Require().NoError(err)
+
+	info, err := s.client.GetPersistentSubscriptionInfoToAll(
+		context.Background(),
+		groupName,
+		kurrentdb.GetPersistentSubscriptionOptions{},
+	)
+	s.Require().NoError(err)
+
+	s.Require().Equal(kurrentdb.ConsumerStrategyPinnedByCorrelation, info.Settings.ConsumerStrategyName)
+}
+
 func (s *PersistentSubscriptionSuite) TestPersistentAllUpdate() {
 	groupName := s.fixture.NewGroupId()
 

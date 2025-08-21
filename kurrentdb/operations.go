@@ -16,3 +16,33 @@ func (client *Client) GetServerVersion() (*ServerVersion, error) {
 
 	return handle.GetServerVersion()
 }
+
+func (v *ServerVersion) IsAtLeast(major, minor, patch int) bool {
+	if v.Major > major {
+		return true
+	}
+	if v.Major == major {
+		if v.Minor > minor {
+			return true
+		}
+		if v.Minor == minor {
+			return v.Patch >= patch
+		}
+	}
+	return false
+}
+
+func (v *ServerVersion) IsBelow(major, minor, patch int) bool {
+	if v.Major < major {
+		return true
+	}
+	if v.Major == major {
+		if v.Minor < minor {
+			return true
+		}
+		if v.Minor == minor {
+			return v.Patch < patch
+		}
+	}
+	return false
+}
