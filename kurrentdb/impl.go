@@ -42,6 +42,10 @@ func (client *grpcClient) handleError(handle *connectionHandle, trailers metadat
 		}
 	}
 
+	if richErr := getDetail(err); richErr != nil {
+		return richErr
+	}
+
 	values := trailers.Get("exception")
 
 	if values != nil && values[0] == "not-leader" {
@@ -394,6 +398,10 @@ func getSupportedMethods(ctx context.Context, conf *Configuration, conn *grpc.Cl
 			break
 		}
 
+		if hyphenIdx := strings.Index(value, "-"); hyphenIdx != -1 {
+			value = value[:hyphenIdx]
+		}
+
 		num, err := strconv.Atoi(value)
 
 		if err != nil {
@@ -435,7 +443,7 @@ func getSupportedMethods(ctx context.Context, conf *Configuration, conn *grpc.Cl
 			default:
 			}
 		default:
-			if method.MethodName == "multistreamappendsession" {
+			if method.MethodName == "appendsession" {
 				info.featureFlags |= featureMultiStreamAppend
 			}
 		}
