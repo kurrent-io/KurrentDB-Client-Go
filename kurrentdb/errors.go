@@ -2,6 +2,9 @@ package kurrentdb
 
 import (
 	"fmt"
+
+	streamErrors "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streams/errors"
+	"google.golang.org/grpc/status"
 )
 
 // ErrorCode KurrentDB error code.
@@ -24,6 +27,14 @@ const (
 	ErrorCodeConnectionClosed
 	// ErrorCodeWrongExpectedVersion when an append request failed the optimistic concurrency on the server.
 	ErrorCodeWrongExpectedVersion
+	// ErrorCodeStreamRevisionConflict when an append request failed due to a stream revision conflict.
+	ErrorCodeStreamRevisionConflict
+	// ErrorCodeStreamTombstoned requested stream is tombstoned.
+	ErrorCodeStreamTombstoned
+	// ErrorCodeAppendRecordSizeExceeded when an append record exceeds the maximum allowed size.
+	ErrorCodeAppendRecordSizeExceeded
+	// ErrorCodeAppendTransactionSizeExceeded when an append transaction exceeds the maximum allowed size.
+	ErrorCodeAppendTransactionSizeExceeded
 	// ErrorCodeAccessDenied a request requires the right ACL.
 	ErrorCodeAccessDenied
 	// ErrorCodeStreamDeleted requested stream is deleted.
@@ -129,4 +140,129 @@ func unsupportedFeatureError() error {
 
 func unknownError() error {
 	return &Error{code: ErrorCodeUnknown}
+}
+
+// getDetail attempts to extract rich error details from a gRPC status error
+func getDetail(err error) *Error {
+	s, ok := status.FromError(err)
+	if !ok || s == nil {
+		return nil
+	}
+
+	for _, d := range s.Details() {
+		switch detail := d.(type) {
+		case *streamErrors.StreamRevisionConflictErrorDetails:
+			expectedState := convertInt64ToStreamState(detail.ExpectedRevision)
+			actualState := convertInt64ToStreamState(detail.ActualRevision)
+			return &Error{
+				code: ErrorCodeStreamRevisionConflict,
+				err: &StreamRevisionConflictError{
+					Stream:           detail.Stream,
+					ExpectedRevision: expectedState,
+					ActualRevision:   actualState,
+				},
+			}
+		case *streamErrors.StreamDeletedErrorDetails:
+			return &Error{
+				code: ErrorCodeStreamDeleted,
+				err:  &StreamDeletedError{Stream: detail.Stream},
+			}
+		case *streamErrors.StreamTombstonedErrorDetails:
+			return &Error{
+				code: ErrorCodeStreamTombstoned,
+				err:  &StreamTombstoneError{Stream: detail.Stream},
+			}
+		case *streamErrors.AppendRecordSizeExceededErrorDetails:
+			return &Error{
+				code: ErrorCodeAppendRecordSizeExceeded,
+				err: &AppendRecordSizeExceededError{
+					Stream:   detail.Stream,
+					RecordId: detail.RecordId,
+					Size:     detail.Size,
+					MaxSize:  detail.MaxSize,
+				},
+			}
+		case *streamErrors.AppendTransactionSizeExceededErrorDetails:
+			return &Error{
+				code: ErrorCodeAppendTransactionSizeExceeded,
+				err: &AppendTransactionSizeExceededError{
+					Size:    detail.Size,
+					MaxSize: detail.MaxSize,
+				},
+			}
+		}
+	}
+
+	return nil
+}
+
+// convertInt64ToStreamState converts an int64 revision value to the appropriate StreamState implementation
+func convertInt64ToStreamState(revision int64) StreamState {
+	switch revision {
+	case -1:
+		return NoStream{}
+	case -2:
+		return Any{}
+	case -4:
+		return StreamExists{}
+	default:
+		if revision >= 0 {
+			return StreamRevision{Value: uint64(revision)}
+		}
+		// For any other negative values, treat as StreamRevision with the raw value
+		return StreamRevision{Value: uint64(revision)}
+	}
+}
+
+// StreamRevisionConflictError represents a conflict in stream revision during append.
+type StreamRevisionConflictError struct {
+	Stream           string
+	ExpectedRevision StreamState
+	ActualRevision   StreamState
+}
+
+func (e *StreamRevisionConflictError) Error() string {
+	return fmt.Sprintf("[ErrorCodeStreamRevisionConflict] stream revision conflict: stream=%s expected_revision=%v actual_revision=%v", e.Stream, e.ExpectedRevision, e.ActualRevision)
+}
+
+// StreamDeletedError represents an error when attempting to access a deleted stream.
+type StreamDeletedError struct {
+	Stream string
+}
+
+func (e *StreamDeletedError) Error() string {
+	return fmt.Sprintf("[ErrorCodeStreamDeleted] stream deleted: stream=%s", e.Stream)
+}
+
+// StreamTombstoneError represents an error when attempting to access a deleted stream.
+type StreamTombstoneError struct {
+	Stream string
+}
+
+func (e *StreamTombstoneError) Error() string {
+	return fmt.Sprintf("[ErrorCodeStreamTombstone] stream deleted: stream=%s", e.Stream)
+}
+
+// AppendRecordSizeExceededError represents an error when an append record exceeds the maximum allowed size.
+type AppendRecordSizeExceededError struct {
+	Stream   string
+	RecordId string
+	Size     int32
+	MaxSize  int32
+}
+
+func (e *AppendRecordSizeExceededError) Error() string {
+	exceededBy := e.Size - e.MaxSize
+	return fmt.Sprintf("[ErrorCodeAppendRecordSizeExceeded] The size of record %s (%d bytes) exceeds the maximum allowed size of %d bytes by %d bytes", e.RecordId, e.Size, e.MaxSize, exceededBy)
+}
+
+// AppendTransactionSizeExceededError represents an error when an append transaction exceeds the maximum allowed size.
+type AppendTransactionSizeExceededError struct {
+	Size    int32
+	MaxSize int32
+}
+
+func (e *AppendTransactionSizeExceededError) Error() string {
+	exceededBy := e.Size - e.MaxSize
+	return fmt.Sprintf("[ErrorCodeAppendTransactionSizeExceeded] The total size of the append transaction (%d bytes) exceeds the maximum allowed size of %d bytes by %d bytes", e.Size, e.MaxSize, exceededBy)
 }

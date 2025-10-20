@@ -3,9 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
-	"github.com/stretchr/testify/require"
 	"io"
 	"os"
 	"strconv"
@@ -13,6 +10,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
+	"github.com/stretchr/testify/require"
 )
 
 type KurrentDBVersion struct {

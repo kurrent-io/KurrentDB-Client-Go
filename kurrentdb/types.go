@@ -697,10 +697,9 @@ type AppendStreamRequest struct {
 	ExpectedStreamState StreamState
 }
 
-type AppendStreamSuccess struct {
-	StreamName     string
-	StreamRevision uint64
-	Position       uint64
+type AppendResponse struct {
+	Stream         string
+	StreamRevision int64
 }
 
 type AppendStreamErrorCase uint64
@@ -713,23 +712,7 @@ const (
 	AppendStreamErrorCaseTransactionMaxSizeExceeded
 )
 
-type AppendStreamFailure struct {
-	StreamName         string
-	Reason             string
-	StreamRevision     *uint64
-	TransactionMaxSize *uint32
-	ErrorCase          AppendStreamErrorCase
-}
-
-type MultiAppendWriteResult struct {
-	Successes []AppendStreamSuccess
-	Failures  []AppendStreamFailure
-}
-
-func (r *MultiAppendWriteResult) HasFailed() bool {
-	return len(r.Failures) > 0
-}
-
-func (r *MultiAppendWriteResult) IsSuccessful() bool {
-	return !r.HasFailed()
+type MultiStreamAppendResponse struct {
+	Position  int64
+	Responses []AppendResponse
 }

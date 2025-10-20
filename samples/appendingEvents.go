@@ -3,7 +3,9 @@ package samples
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -202,4 +204,58 @@ func AppendToStreamOverridingUserCredentials(db *kurrentdb.Client) {
 	// endregion overriding-user-credentials
 
 	log.Printf("Result: %v", result)
+}
+
+func AppendToMultipleStreams(db *kurrentdb.Client) {
+	type OrderCreated struct {
+		OrderId string  `json:"orderId"`
+		Amount  float64 `json:"amount"`
+	}
+
+	type PaymentProcessed struct {
+		PaymentId string  `json:"paymentId"`
+		Amount    float64 `json:"amount"`
+		Method    string  `json:"method"`
+	}
+
+	metadata := map[string]interface{}{
+		"source": "web-store",
+	}
+	metadataBytes, _ := json.Marshal(metadata)
+
+	orderData, _ := json.Marshal(OrderCreated{OrderId: "12345", Amount: 99.99})
+	paymentData, _ := json.Marshal(PaymentProcessed{PaymentId: "PAY-789", Amount: 99.99, Method: "credit_card"})
+
+	requests := []kurrentdb.AppendStreamRequest{
+		{
+			StreamName: "order-stream-1",
+			Events: slices.Values([]kurrentdb.EventData{{
+				EventID:     uuid.New(),
+				EventType:   "OrderCreated",
+				ContentType: kurrentdb.ContentTypeJson,
+				Data:        orderData,
+				Metadata:    metadataBytes,
+			}}),
+			ExpectedStreamState: kurrentdb.Any{},
+		},
+		{
+			StreamName: "payment-stream-1",
+			Events: slices.Values([]kurrentdb.EventData{{
+				EventID:     uuid.New(),
+				EventType:   "PaymentProcessed",
+				ContentType: kurrentdb.ContentTypeJson,
+				Data:        paymentData,
+				Metadata:    metadataBytes,
+			}}),
+			ExpectedStreamState: kurrentdb.Any{},
+		},
+	}
+
+	_, err := db.MultiStreamAppend(context.Background(), slices.Values(requests))
+	if err != nil {
+		var streamRevisionConflictErr *kurrentdb.StreamRevisionConflictError
+		if errors.As(err, &streamRevisionConflictErr) {
+			log.Printf("Stream revision conflict on stream %s: expected %v but was %v", streamRevisionConflictErr.Stream, streamRevisionConflictErr.ExpectedRevision, streamRevisionConflictErr.ActualRevision)
+		}
+	}
 }

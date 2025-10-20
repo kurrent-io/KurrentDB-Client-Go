@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"slices"
 	"testing"
 	"time"
@@ -92,7 +93,7 @@ func (s *MultiAppendTestSuite) TestMultiStreamAppend() {
 
 	// Assert
 	assert.NoError(s.T(), err)
-	assert.True(s.T(), result.IsSuccessful())
+	assert.Greater(s.T(), result.Position, int64(0))
 
 	s.assertMetadata(stream1, event1.EventType)
 	s.assertMetadata(stream2, event2.EventType)
@@ -201,17 +202,23 @@ func (s *MultiAppendTestSuite) TestMultiStreamAppendStreamRevisionConflict() {
 		},
 	}
 
-	result, err := client.MultiStreamAppend(context.Background(), slices.Values(requests))
+	_, err = client.MultiStreamAppend(context.Background(), slices.Values(requests))
+	kurrentDbError, ok := kurrentdb.FromError(err)
 
-	assert.NoError(s.T(), err)
-	assert.NotNil(s.T(), result)
-	assert.Len(s.T(), result.Failures, 1)
-	assert.Equal(s.T(), stream, result.Failures[0].StreamName)
-	assert.Equal(s.T(), kurrentdb.AppendStreamErrorCaseStreamRevisionConflict, result.Failures[0].ErrorCase)
-	assert.Equal(s.T(), lastEvent.OriginalEvent().EventNumber, *result.Failures[0].StreamRevision)
+	assert.False(s.T(), ok)
+	assert.Equal(s.T(), kurrentdb.ErrorCodeStreamRevisionConflict, kurrentDbError.Code())
+
+	var streamRevisionConflictErr *kurrentdb.StreamRevisionConflictError
+	if !errors.As(err, &streamRevisionConflictErr) {
+		s.T().Fatal("Expected StreamRevisionConflictError")
+	}
+
+	assert.Equal(s.T(), stream, streamRevisionConflictErr.Stream)
+	assert.Equal(s.T(), kurrentdb.NoStream{}, streamRevisionConflictErr.ExpectedRevision)
+	assert.Equal(s.T(), kurrentdb.StreamRevision{Value: lastEvent.OriginalEvent().EventNumber}, streamRevisionConflictErr.ActualRevision)
 }
 
-func (s *MultiAppendTestSuite) TestMultiStreamAppendStreamDeleted() {
+func (s *MultiAppendTestSuite) TestMultiStreamAppendStreamTombstoned() {
 	client := s.fixture.Client()
 
 	version, err := client.GetServerVersion()
@@ -238,13 +245,11 @@ func (s *MultiAppendTestSuite) TestMultiStreamAppendStreamDeleted() {
 		},
 	}
 
-	result, err := client.MultiStreamAppend(context.Background(), slices.Values(requests))
+	_, err = client.MultiStreamAppend(context.Background(), slices.Values(requests))
+	kurrentDbError, ok := kurrentdb.FromError(err)
 
-	assert.NoError(s.T(), err)
-	assert.NotNil(s.T(), result)
-	assert.Len(s.T(), result.Failures, 1)
-	assert.Equal(s.T(), stream, result.Failures[0].StreamName)
-	assert.Equal(s.T(), kurrentdb.AppendStreamErrorCaseStreamDeleted, result.Failures[0].ErrorCase)
+	assert.False(s.T(), ok)
+	assert.Equal(s.T(), kurrentdb.ErrorCodeStreamTombstoned, kurrentDbError.Code())
 }
 
 // region helpers
