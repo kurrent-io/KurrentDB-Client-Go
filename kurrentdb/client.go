@@ -6,22 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/gossip"
-	persistentProto "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/persistent"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
-	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/core"
-	apiV2 "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streams/streams"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"iter"
 	"strconv"
-	"time"
 
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/gossip"
+	persistentProto "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/persistent"
+	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
 	api "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/streams"
+	apiV2 "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streams/streams"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // Client Represents a client to a single node. A client instance maintains a full duplex communication to KurrentDB.
@@ -159,10 +155,45 @@ func (client *Client) AppendToStream(
 	}, nil
 }
 
+// MultiStreamAppend appends events to multiple streams atomically in a single operation.
+//
+// Parameters:
+//   - context: Context for cancellation and timeouts
+//   - requests: Iterator of AppendStreamRequest (StreamName, Events, ExpectedStreamState)
+//
+// Returns:
+//   - *MultiStreamAppendResponse: Global position and per-stream responses
+//   - error: Wrapped in *Error with specific ErrorCode
+//
+// Errors:
+//   - ErrorCodeUnsupportedFeature: Server doesn't support multi-stream append
+//   - ErrorCodeStreamRevisionConflict: Optimistic concurrency failure (*StreamRevisionConflictError)
+//   - ErrorCodeStreamDeleted/ErrorCodeStreamTombstoned: Stream was deleted (*StreamDeletedError/*StreamTombstoneError)
+//   - ErrorCodeAppendRecordSizeExceeded: Event too large (*AppendRecordSizeExceededError)
+//   - ErrorCodeAppendTransactionSizeExceeded: Total transaction too large (*AppendTransactionSizeExceededError)
+//   - ErrorCodeParsing: Invalid JSON metadata
+//   - ErrorCodeUnauthenticated/ErrorCodeAccessDenied: Auth failures
+//   - ErrorCodeDeadlineExceeded/ErrorCodeUnavailable: Timeout or server unavailable
+//   - ErrorCodeNotLeader: Request sent to follower node
+//
+// Example:
+//
+//	response, err := db.MultiStreamAppend(context.Background(), slices.Values(requests))
+//	if err != nil {
+//		var esErr *kurrentdb.Error
+//		if errors.As(err, &esErr) {
+//			if esErr.Code() == kurrentdb.ErrorCodeStreamRevisionConflict {
+//				var conflictErr *kurrentdb.StreamRevisionConflictError
+//				errors.As(esErr.Err(), &conflictErr)
+//			}
+//		}
+//	}
+//
+// Note: Currently, metadata must be valid JSON. Binary metadata will not be supported in this version. This limitation ensures compatibility with KurrentDB's metadata handling and will be removed in the next major release.
 func (client *Client) MultiStreamAppend(
 	context context.Context,
 	requests iter.Seq[AppendStreamRequest],
-) (*MultiAppendWriteResult, error) {
+) (*MultiStreamAppendResponse, error) {
 	var opts AppendToStreamOptions
 	opts.setDefaults()
 
@@ -192,7 +223,7 @@ func (client *Client) MultiStreamAppend(
 	callOptions, ctx, cancel := configureGrpcCall_(context, client.config, &opts, callOptions, client.grpcClient.perRPCCredentials, false)
 	defer cancel()
 
-	appendOperation, err := streamsClient.MultiStreamAppendSession(ctx, callOptions...)
+	appendOperation, err := streamsClient.AppendSession(ctx, callOptions...)
 	if err != nil {
 		err = client.grpcClient.handleError(handle, trailers, err)
 		return nil, fmt.Errorf("could not construct multi stream append session. reason: %w", err)
@@ -202,26 +233,14 @@ func (client *Client) MultiStreamAppend(
 		records := make([]*apiV2.AppendRecord, 0)
 
 		for event := range request.Events {
-			properties := make(map[string]*core.DynamicValue)
+			properties := make(map[string]*structpb.Value)
 
-			properties["$schema.name"] = &core.DynamicValue{
-				Kind: &core.DynamicValue_StringValue{
-					StringValue: event.EventType,
-				},
-			}
-
-			contentType := "Bytes"
+			contentType := apiV2.SchemaFormat_SCHEMA_FORMAT_BYTES
 			if event.ContentType == ContentTypeJson {
-				contentType = "Json"
+				contentType = apiV2.SchemaFormat_SCHEMA_FORMAT_JSON
 			}
 
-			properties["$schema.data-format"] = &core.DynamicValue{
-				Kind: &core.DynamicValue_StringValue{
-					StringValue: contentType,
-				},
-			}
-
-			metadataProperties, err := mapMetadataToDynamicValue(event.Metadata)
+			metadataProperties, err := mapMetadataToValue(event.Metadata)
 			if err != nil {
 				return nil, fmt.Errorf("could not map event metadata to dynamic values: %w", err)
 			}
@@ -234,66 +253,44 @@ func (client *Client) MultiStreamAppend(
 			records = append(records, &apiV2.AppendRecord{
 				RecordId:   &recordId,
 				Properties: properties,
-				Data:       event.Data,
+				Schema: &apiV2.SchemaInfo{
+					Format: contentType,
+					Name:   event.EventType,
+				},
+				Data: event.Data,
 			})
 		}
 
 		expectedRevision := request.ExpectedStreamState.toRawInt64()
-		if err = appendOperation.Send(&apiV2.AppendStreamRequest{
+		if err = appendOperation.Send(&apiV2.AppendRequest{
 			Stream:           request.StreamName,
 			Records:          records,
 			ExpectedRevision: &expectedRevision,
 		}); err != nil {
 			err = client.grpcClient.handleError(handle, trailers, err)
-			return nil, fmt.Errorf("could not send multi stream append session. reason: %w", err)
+			return nil, fmt.Errorf("could not send multi stream append request. reason: %w", err)
 		}
 	}
 
 	response, err := appendOperation.CloseAndRecv()
 	if err != nil {
 		err = client.grpcClient.handleError(handle, trailers, err)
-		return nil, fmt.Errorf("could not close multi stream append session. reason: %w", err)
+		return nil, err
 	}
 
-	if response.GetSuccess() != nil {
-		successes := make([]AppendStreamSuccess, 0)
-		for _, success := range response.GetSuccess().Output {
-			successes = append(successes, AppendStreamSuccess{
-				StreamName:     success.Stream,
-				StreamRevision: uint64(success.StreamRevision),
-				Position:       uint64(success.Position),
-			})
-		}
+	responses := make([]AppendResponse, 0)
 
-		return &MultiAppendWriteResult{
-			Successes: successes,
-		}, nil
+	for _, output := range response.GetOutput() {
+		responses = append(responses, AppendResponse{
+			Stream:         output.Stream,
+			StreamRevision: output.StreamRevision,
+		})
 	}
 
-	failures := make([]AppendStreamFailure, 0)
-	for _, failure := range response.GetFailure().Output {
-		result := AppendStreamFailure{StreamName: failure.Stream}
-
-		switch value := failure.Error.(type) {
-		case *apiV2.AppendStreamFailure_AccessDenied:
-			result.Reason = value.AccessDenied.String()
-			result.ErrorCase = AppendStreamErrorCaseAccessDenied
-		case *apiV2.AppendStreamFailure_StreamDeleted:
-			result.ErrorCase = AppendStreamErrorCaseStreamDeleted
-		case *apiV2.AppendStreamFailure_StreamRevisionConflict:
-			streamRevision := uint64(value.StreamRevisionConflict.GetStreamRevision())
-			result.ErrorCase = AppendStreamErrorCaseStreamRevisionConflict
-			result.StreamRevision = &streamRevision
-		case *apiV2.AppendStreamFailure_TransactionMaxSizeExceeded:
-			maxSize := value.TransactionMaxSizeExceeded.GetMaxSize()
-			result.ErrorCase = AppendStreamErrorCaseTransactionMaxSizeExceeded
-			result.TransactionMaxSize = &maxSize
-		}
-
-		failures = append(failures, result)
-	}
-
-	return &MultiAppendWriteResult{Failures: failures}, nil
+	return &MultiStreamAppendResponse{
+		Position:  response.Position,
+		Responses: responses,
+	}, nil
 }
 
 // SetStreamMetadata Sets the metadata for a stream.
@@ -938,86 +935,32 @@ func (client *Client) Gossip(ctx context.Context) ([]*gossip.MemberInfo, error) 
 	return clusterInfo.Members, nil
 }
 
-func mapToDynamicValue(value interface{}) *core.DynamicValue {
+func mapToValue(value interface{}) *structpb.Value {
 	switch v := value.(type) {
 	case nil:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_NullValue{
-				NullValue: structpb.NullValue_NULL_VALUE,
-			},
-		}
+		return structpb.NewNullValue()
 	case string:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_StringValue{
-				StringValue: v,
-			},
-		}
+		return structpb.NewStringValue(v)
 	case bool:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_BooleanValue{
-				BooleanValue: v,
-			},
-		}
+		return structpb.NewBoolValue(v)
 	case int:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_Int64Value{
-				Int64Value: int64(v),
-			},
-		}
+		return structpb.NewNumberValue(float64(v))
 	case int32:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_Int32Value{
-				Int32Value: v,
-			},
-		}
+		return structpb.NewNumberValue(float64(v))
 	case int64:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_Int64Value{
-				Int64Value: v,
-			},
-		}
+		return structpb.NewNumberValue(float64(v))
 	case float32:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_FloatValue{
-				FloatValue: v,
-			},
-		}
+		return structpb.NewNumberValue(float64(v))
 	case float64:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_DoubleValue{
-				DoubleValue: v,
-			},
-		}
-	case time.Time:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_TimestampValue{
-				TimestampValue: timestamppb.New(v),
-			},
-		}
-	case time.Duration:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_DurationValue{
-				DurationValue: durationpb.New(v),
-			},
-		}
-	case []byte:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_BytesValue{
-				BytesValue: v,
-			},
-		}
+		return structpb.NewNumberValue(v)
 	default:
-		return &core.DynamicValue{
-			Kind: &core.DynamicValue_StringValue{
-				StringValue: fmt.Sprintf("%v", v),
-			},
-		}
+		return structpb.NewStringValue(fmt.Sprintf("%v", v))
 	}
 }
 
-func mapMetadataToDynamicValue(metadata []byte) (map[string]*core.DynamicValue, error) {
+func mapMetadataToValue(metadata []byte) (map[string]*structpb.Value, error) {
 	if len(metadata) == 0 {
-		return make(map[string]*core.DynamicValue), nil
+		return make(map[string]*structpb.Value), nil
 	}
 
 	var metadataMap map[string]interface{}
@@ -1025,9 +968,9 @@ func mapMetadataToDynamicValue(metadata []byte) (map[string]*core.DynamicValue, 
 		return nil, fmt.Errorf("failed to unmarshal metadata as JSON: %w", err)
 	}
 
-	properties := make(map[string]*core.DynamicValue)
+	properties := make(map[string]*structpb.Value)
 	for key, value := range metadataMap {
-		properties[key] = mapToDynamicValue(value)
+		properties[key] = mapToValue(value)
 	}
 
 	return properties, nil
