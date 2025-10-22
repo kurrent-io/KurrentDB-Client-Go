@@ -252,7 +252,7 @@ type PaymentProcessed struct {
 	Method    string  `json:"method"`
 }
 
-metadata := map[string]interface{}{
+metadata := map[string]string{
 	"source": "web-store",
 }
 metadataBytes, _ := json.Marshal(metadata)
