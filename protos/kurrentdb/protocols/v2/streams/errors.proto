@@ -7,9 +7,6 @@ syntax = "proto3";
 package kurrentdb.protocol.v2.streams.errors;
 
 option go_package = "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streams";
-option csharp_namespace = "KurrentDB.Protocol.V2.Streams.Errors";
-option java_package        = "io.kurrentdb.protocol.v2.streams.errors";
-option java_multiple_files = true;
 
 import "kurrentdb/protocols/v2/rpc.proto";
 
@@ -179,10 +176,10 @@ message StreamRevisionConflictErrorDetails {
   string stream = 1;
 
   // The expected revision that was provided in the append request.
-  sint64 expected_revision = 2 [jstype = JS_STRING];
+  sint64 expected_revision = 2;
 
   // The actual current revision of the stream.
-  sint64 actual_revision = 3 [jstype = JS_STRING];
+  sint64 actual_revision = 3;
 }
 
 // Details for APPEND_RECORD_SIZE_EXCEEDED errors.

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
 	"github.com/stretchr/testify/assert"
@@ -19,20 +18,9 @@ type MultiAppendTestSuite struct {
 }
 
 type ExpectedMetadata struct {
-	StringValue      string        `json:"stringValue"`
-	BoolValue        bool          `json:"boolValue"`
-	Float32Value     float32       `json:"float32Value"`
-	Float64Value     float64       `json:"float64Value"`
-	IntValue         int           `json:"intValue"`
-	Int32Value       int32         `json:"int32Value"`
-	Int64Value       int64         `json:"int64Value"`
-	NullValue        interface{}   `json:"nullValue"`
-	TimeValue        time.Time     `json:"timeValue"`
-	DurationValue    time.Duration `json:"durationValue"`
-	ByteValue        []byte        `json:"byteValue"`
-	DefaultValue     interface{}   `json:"defaultValue"`
-	SchemaDataFormat string        `json:"$schema.data-format"`
-	SchemaName       string        `json:"$schema.name"`
+	StringValue  string `json:"stringValue"`
+	SchemaFormat string `json:"$schema.format"`
+	SchemaName   string `json:"$schema.name"`
 }
 
 func TestMultiAppendEventsSuite(t *testing.T) {
@@ -54,19 +42,8 @@ func (s *MultiAppendTestSuite) TestMultiStreamAppend() {
 	}
 
 	// Arrange
-	expectedMetadata, _ := json.Marshal(map[string]interface{}{
-		"stringValue":   "string",
-		"boolValue":     true,
-		"intValue":      1,
-		"int32Value":    int32(32),
-		"int64Value":    int64(64),
-		"float32Value":  float32(3.14),
-		"float64Value":  float64(2.718),
-		"nullValue":     nil,
-		"timeValue":     time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
-		"durationValue": 5 * time.Minute,
-		"byteValue":     []byte{0x01, 0x02, 0x03},
-		"defaultValue":  struct{ Value string }{Value: "test"},
+	expectedMetadata, _ := json.Marshal(map[string]string{
+		"stringValue": "string",
 	})
 
 	stream1 := s.fixture.NewStreamId()
@@ -126,6 +103,50 @@ func (s *MultiAppendTestSuite) TestMultiStreamAppendUnsupported() {
 
 	kdbError, _ := kurrentdb.FromError(err)
 	assert.Equal(s.T(), kurrentdb.ErrorCodeUnsupportedFeature, kdbError.Code(), "Expected unsupported feature error code")
+}
+
+func (s *MultiAppendTestSuite) TestMultiStreamAppendNonPlainJsonMetadataThrows() {
+	client := s.fixture.Client()
+
+	version, err := client.GetServerVersion()
+	assert.NoError(s.T(), err)
+
+	if version.Major < 25 {
+		s.T().Skip("Multi-stream append is not supported in versions prior to 25.0")
+	}
+
+	// Arrange
+	stream := s.fixture.NewStreamId()
+
+	expectedMetadata, _ := json.Marshal(map[string]interface{}{
+		"stringValue": "string",
+		"boolValue":   true,
+	})
+
+	event := s.fixture.CreateTestEvent(TestEventOptions{
+		EventType:   "OrderCreated",
+		ContentType: kurrentdb.ContentTypeBinary,
+		Metadata:    expectedMetadata,
+	})
+
+	requests := []kurrentdb.AppendStreamRequest{
+		{
+			StreamName:          stream,
+			Events:              slices.Values([]kurrentdb.EventData{event}),
+			ExpectedStreamState: kurrentdb.NoStream{},
+		},
+	}
+
+	// Act
+	result, err := client.MultiStreamAppend(context.Background(), slices.Values(requests))
+
+	// Assert
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), result)
+
+	dbError, ok := kurrentdb.FromError(err)
+	assert.False(s.T(), ok)
+	assert.Error(s.T(), dbError)
 }
 
 func (s *MultiAppendTestSuite) TestMultiStreamAppendWithBinaryMetadataThrowsError() {
@@ -268,20 +289,9 @@ func (s *MultiAppendTestSuite) assertMetadata(streamName string, eventType strin
 	err = json.Unmarshal(events[0].OriginalEvent().UserMetadata, &readMetadata)
 	assert.NoError(s.T(), err)
 
-	assert.Equal(s.T(), "Bytes", readMetadata.SchemaDataFormat)
+	assert.Equal(s.T(), "Bytes", readMetadata.SchemaFormat)
 	assert.Equal(s.T(), eventType, readMetadata.SchemaName)
 	assert.Equal(s.T(), "string", readMetadata.StringValue)
-	assert.Equal(s.T(), true, readMetadata.BoolValue)
-	assert.Equal(s.T(), 1, readMetadata.IntValue)
-	assert.Equal(s.T(), int32(32), readMetadata.Int32Value)
-	assert.Equal(s.T(), int64(64), readMetadata.Int64Value)
-	assert.Equal(s.T(), float32(3.14), readMetadata.Float32Value)
-	assert.Equal(s.T(), float64(2.718), readMetadata.Float64Value)
-	assert.Nil(s.T(), readMetadata.NullValue)
-	assert.Equal(s.T(), time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC), readMetadata.TimeValue)
-	assert.Equal(s.T(), 5*time.Minute, readMetadata.DurationValue)
-	assert.Equal(s.T(), []byte{0x01, 0x02, 0x03}, readMetadata.ByteValue)
-	assert.Equal(s.T(), "map[Value:test]", readMetadata.DefaultValue)
 }
 
 //endregion
