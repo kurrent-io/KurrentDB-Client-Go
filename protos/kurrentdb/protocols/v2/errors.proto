@@ -6,7 +6,7 @@ syntax = "proto3";
 
 package kurrent.rpc;
 
-option go_package = "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/rpc";
+option go_package = "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/errors";
 
 import "kurrentdb/protocols/v2/rpc.proto";
 

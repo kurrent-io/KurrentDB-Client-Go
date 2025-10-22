@@ -8,9 +8,10 @@
 // 	protoc        v5.26.0
 // source: kurrentdb/protocols/v2/errors.proto
 
-package rpc
+package errors
 
 import (
+	_ "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/rpc"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -368,7 +369,7 @@ const file_kurrentdb_protocols_v2_errors_proto_rawDesc = "" +
 	"\x1eSERVER_ERROR_OPERATION_TIMEOUT\x10\x06\x1a\x06\x82\xb5\x18\x02\b\x04\x12)\n" +
 	"\x1dSERVER_ERROR_SERVER_NOT_READY\x10\a\x1a\x06\x82\xb5\x18\x02\b\x0e\x12*\n" +
 	"\x1eSERVER_ERROR_SERVER_OVERLOADED\x10\b\x1a\x06\x82\xb5\x18\x02\b\x0e\x12+\n" +
-	"\x1fSERVER_ERROR_SERVER_MALFUNCTION\x10\t\x1a\x06\x82\xb5\x18\x02\b\rBMZKgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/rpcb\x06proto3"
+	"\x1fSERVER_ERROR_SERVER_MALFUNCTION\x10\t\x1a\x06\x82\xb5\x18\x02\b\rBPZNgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/errorsb\x06proto3"
 
 var (
 	file_kurrentdb_protocols_v2_errors_proto_rawDescOnce sync.Once
@@ -404,7 +405,6 @@ func file_kurrentdb_protocols_v2_errors_proto_init() {
 	if File_kurrentdb_protocols_v2_errors_proto != nil {
 		return
 	}
-	file_kurrentdb_protocols_v2_rpc_proto_init()
 	file_kurrentdb_protocols_v2_errors_proto_msgTypes[0].OneofWrappers = []any{}
 	file_kurrentdb_protocols_v2_errors_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
