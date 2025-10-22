@@ -162,11 +162,6 @@ func getDetail(err error) *Error {
 					ActualRevision:   actualState,
 				},
 			}
-		case *streamErrors.StreamDeletedErrorDetails:
-			return &Error{
-				code: ErrorCodeStreamDeleted,
-				err:  &StreamDeletedError{Stream: detail.Stream},
-			}
 		case *streamErrors.StreamTombstonedErrorDetails:
 			return &Error{
 				code: ErrorCodeStreamTombstoned,

@@ -166,15 +166,10 @@ func (client *Client) AppendToStream(
 //   - error: Wrapped in *Error with specific ErrorCode
 //
 // Errors:
-//   - ErrorCodeUnsupportedFeature: Server doesn't support multi-stream append
 //   - ErrorCodeStreamRevisionConflict: Optimistic concurrency failure (*StreamRevisionConflictError)
-//   - ErrorCodeStreamDeleted/ErrorCodeStreamTombstoned: Stream was deleted (*StreamDeletedError/*StreamTombstoneError)
+//   - ErrorCodeStreamTombstoned: Stream was deleted (*StreamTombstoneError)
 //   - ErrorCodeAppendRecordSizeExceeded: Event too large (*AppendRecordSizeExceededError)
 //   - ErrorCodeAppendTransactionSizeExceeded: Total transaction too large (*AppendTransactionSizeExceededError)
-//   - ErrorCodeParsing: Invalid JSON metadata
-//   - ErrorCodeUnauthenticated/ErrorCodeAccessDenied: Auth failures
-//   - ErrorCodeDeadlineExceeded/ErrorCodeUnavailable: Timeout or server unavailable
-//   - ErrorCodeNotLeader: Request sent to follower node
 //
 // Example:
 //
@@ -189,7 +184,7 @@ func (client *Client) AppendToStream(
 //		}
 //	}
 //
-// Note: Currently, metadata must be valid JSON. Binary metadata will not be supported in this version. This limitation ensures compatibility with KurrentDB's metadata handling and will be removed in the next major release.
+// Note: Currently, metadata must be valid JSON with string keys and string values. Binary metadata will not be supported in this version. This limitation ensures compatibility with KurrentDB's metadata handling and will be removed in the next major release.
 func (client *Client) MultiStreamAppend(
 	context context.Context,
 	requests iter.Seq[AppendStreamRequest],
@@ -200,9 +195,9 @@ func (client *Client) MultiStreamAppend(
 	for request := range requests {
 		for event := range request.Events {
 			if len(event.Metadata) > 0 {
-				var metadataMap map[string]interface{}
+				var metadataMap map[string]string
 				if err := json.Unmarshal(event.Metadata, &metadataMap); err != nil {
-					return nil, fmt.Errorf("event metadata must be valid JSON: %w", err)
+					return nil, fmt.Errorf("event metadata must be a valid JSON map[string]string: %w", err)
 				}
 			}
 		}
@@ -935,42 +930,19 @@ func (client *Client) Gossip(ctx context.Context) ([]*gossip.MemberInfo, error) 
 	return clusterInfo.Members, nil
 }
 
-func mapToValue(value interface{}) *structpb.Value {
-	switch v := value.(type) {
-	case nil:
-		return structpb.NewNullValue()
-	case string:
-		return structpb.NewStringValue(v)
-	case bool:
-		return structpb.NewBoolValue(v)
-	case int:
-		return structpb.NewNumberValue(float64(v))
-	case int32:
-		return structpb.NewNumberValue(float64(v))
-	case int64:
-		return structpb.NewNumberValue(float64(v))
-	case float32:
-		return structpb.NewNumberValue(float64(v))
-	case float64:
-		return structpb.NewNumberValue(v)
-	default:
-		return structpb.NewStringValue(fmt.Sprintf("%v", v))
-	}
-}
-
 func mapMetadataToValue(metadata []byte) (map[string]*structpb.Value, error) {
 	if len(metadata) == 0 {
 		return make(map[string]*structpb.Value), nil
 	}
 
-	var metadataMap map[string]interface{}
+	var metadataMap map[string]string
 	if err := json.Unmarshal(metadata, &metadataMap); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata as JSON: %w", err)
 	}
 
 	properties := make(map[string]*structpb.Value)
 	for key, value := range metadataMap {
-		properties[key] = mapToValue(value)
+		properties[key] = structpb.NewStringValue(value)
 	}
 
 	return properties, nil

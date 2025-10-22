@@ -234,9 +234,10 @@ This feature is only available in KurrentDB 25.1 and later.
 You can append events to multiple streams in a single atomic operation. Either all streams are updated, or the entire operation fails.
 
 ::: warning
-Currently, metadata must be valid JSON. Binary metadata will not be supported in
-this version. This limitation ensures compatibility with KurrentDB's metadata
-handling and will be removed in the next major release.
+Metadata must be a valid JSON object, using string keys and string values only.
+Binary metadata is not supported in this version to maintain compatibility with
+KurrentDB's metadata handling. This restriction will be lifted in the next major
+release.
 :::
 
 ```go
