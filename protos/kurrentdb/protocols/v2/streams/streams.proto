@@ -7,9 +7,6 @@ syntax = "proto3";
 package kurrentdb.protocol.v2.streams;
 
 option go_package = "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streams";
-option csharp_namespace    = "KurrentDB.Protocol.Streams.V2";
-option java_package        = "io.kurrentdb.protocol.v2.streams";
-option java_multiple_files = true;
 
 import "google/protobuf/struct.proto";
 
@@ -50,7 +47,7 @@ message AppendRequest {
   // - An ExpectedRevisionConstants value (-4, -2, -1) for special semantics
   //
   // If omitted, defaults to EXPECTED_REVISION_CONSTANTS_ANY (-2).
-  optional sint64 expected_revision = 3 [jstype = JS_STRING];
+  optional sint64 expected_revision = 3;
 }
 
 // Represents the outcome of an append operation.
@@ -60,10 +57,10 @@ message AppendResponse {
 
   // The actual/current revision of the stream after the append.
   // This is the revision number of the last record written to this stream.
-  sint64 stream_revision = 2 [jstype = JS_STRING];
+  sint64 stream_revision = 2;
 
   // The position of the last appended record in the global log.
-  optional sint64 position = 3 [jstype = JS_STRING];
+  optional sint64 position = 3;
 }
 
 message AppendSessionResponse {
@@ -71,7 +68,7 @@ message AppendSessionResponse {
   repeated AppendResponse output = 1;
 
   // The global commit position of the last appended record in the session.
-  sint64 position = 2 [jstype = JS_STRING];
+  sint64 position = 2;
 }
 
 // Represents the data format of the schema.

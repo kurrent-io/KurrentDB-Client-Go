@@ -23,7 +23,6 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	StreamsService_Append_FullMethodName        = "/kurrentdb.protocol.v2.streams.StreamsService/Append"
 	StreamsService_AppendSession_FullMethodName = "/kurrentdb.protocol.v2.streams.StreamsService/AppendSession"
 )
 
@@ -31,16 +30,25 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StreamsServiceClient interface {
-	// Executes an atomic operation to append records to multiple streams.
-	// This transactional method ensures that all appends either succeed
-	// completely, or are entirely rolled back, thereby maintaining strict
-	// data consistency across all involved streams.
-	Append(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error)
-	// Streaming version of Append that allows clients to send multiple
-	// append requests continuously. Once completed, all records are
-	// appended transactionally (all succeed or fail together).
-	// Provides improved efficiency for high-throughput scenarios while
-	// maintaining the same transactional guarantees.
+	// Appends records to multiple streams atomically within a single transaction.
+	//
+	// This is a client-streaming RPC where the client sends multiple AppendRequest messages
+	// (one per stream) and receives a single AppendSessionResponse upon commit.
+	//
+	// Guarantees:
+	// - Atomicity: All writes succeed or all fail together
+	// - Optimistic Concurrency: Expected revisions are validated for all streams before commit
+	// - Ordering: Records within each stream maintain send order
+	//
+	// Current Limitations:
+	// - Each stream can only appear once per session (no multiple appends to same stream)
+	//
+	// Example flow:
+	//  1. Client opens stream
+	//  2. Client sends AppendRequest for stream "orders" with 3 records
+	//  3. Client sends AppendRequest for stream "inventory" with 2 records
+	//  4. Client completes the stream
+	//  5. Server validates, commits, returns AppendSessionResponse with positions
 	AppendSession(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[AppendRequest, AppendSessionResponse], error)
 }
 
@@ -50,16 +58,6 @@ type streamsServiceClient struct {
 
 func NewStreamsServiceClient(cc grpc.ClientConnInterface) StreamsServiceClient {
 	return &streamsServiceClient{cc}
-}
-
-func (c *streamsServiceClient) Append(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(AppendResponse)
-	err := c.cc.Invoke(ctx, StreamsService_Append_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *streamsServiceClient) AppendSession(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[AppendRequest, AppendSessionResponse], error) {
@@ -79,16 +77,25 @@ type StreamsService_AppendSessionClient = grpc.ClientStreamingClient[AppendReque
 // All implementations must embed UnimplementedStreamsServiceServer
 // for forward compatibility.
 type StreamsServiceServer interface {
-	// Executes an atomic operation to append records to multiple streams.
-	// This transactional method ensures that all appends either succeed
-	// completely, or are entirely rolled back, thereby maintaining strict
-	// data consistency across all involved streams.
-	Append(context.Context, *AppendRequest) (*AppendResponse, error)
-	// Streaming version of Append that allows clients to send multiple
-	// append requests continuously. Once completed, all records are
-	// appended transactionally (all succeed or fail together).
-	// Provides improved efficiency for high-throughput scenarios while
-	// maintaining the same transactional guarantees.
+	// Appends records to multiple streams atomically within a single transaction.
+	//
+	// This is a client-streaming RPC where the client sends multiple AppendRequest messages
+	// (one per stream) and receives a single AppendSessionResponse upon commit.
+	//
+	// Guarantees:
+	// - Atomicity: All writes succeed or all fail together
+	// - Optimistic Concurrency: Expected revisions are validated for all streams before commit
+	// - Ordering: Records within each stream maintain send order
+	//
+	// Current Limitations:
+	// - Each stream can only appear once per session (no multiple appends to same stream)
+	//
+	// Example flow:
+	//  1. Client opens stream
+	//  2. Client sends AppendRequest for stream "orders" with 3 records
+	//  3. Client sends AppendRequest for stream "inventory" with 2 records
+	//  4. Client completes the stream
+	//  5. Server validates, commits, returns AppendSessionResponse with positions
 	AppendSession(grpc.ClientStreamingServer[AppendRequest, AppendSessionResponse]) error
 	mustEmbedUnimplementedStreamsServiceServer()
 }
@@ -100,9 +107,6 @@ type StreamsServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedStreamsServiceServer struct{}
 
-func (UnimplementedStreamsServiceServer) Append(context.Context, *AppendRequest) (*AppendResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Append not implemented")
-}
 func (UnimplementedStreamsServiceServer) AppendSession(grpc.ClientStreamingServer[AppendRequest, AppendSessionResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method AppendSession not implemented")
 }
@@ -127,24 +131,6 @@ func RegisterStreamsServiceServer(s grpc.ServiceRegistrar, srv StreamsServiceSer
 	s.RegisterService(&StreamsService_ServiceDesc, srv)
 }
 
-func _StreamsService_Append_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AppendRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(StreamsServiceServer).Append(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: StreamsService_Append_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StreamsServiceServer).Append(ctx, req.(*AppendRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _StreamsService_AppendSession_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(StreamsServiceServer).AppendSession(&grpc.GenericServerStream[AppendRequest, AppendSessionResponse]{ServerStream: stream})
 }
@@ -158,12 +144,7 @@ type StreamsService_AppendSessionServer = grpc.ClientStreamingServer[AppendReque
 var StreamsService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "kurrentdb.protocol.v2.streams.StreamsService",
 	HandlerType: (*StreamsServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Append",
-			Handler:    _StreamsService_Append_Handler,
-		},
-	},
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "AppendSession",

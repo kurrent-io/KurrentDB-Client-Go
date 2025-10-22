@@ -19,20 +19,20 @@ type MultiAppendTestSuite struct {
 }
 
 type ExpectedMetadata struct {
-	StringValue      string        `json:"stringValue"`
-	BoolValue        bool          `json:"boolValue"`
-	Float32Value     float32       `json:"float32Value"`
-	Float64Value     float64       `json:"float64Value"`
-	IntValue         int           `json:"intValue"`
-	Int32Value       int32         `json:"int32Value"`
-	Int64Value       int64         `json:"int64Value"`
-	NullValue        interface{}   `json:"nullValue"`
-	TimeValue        time.Time     `json:"timeValue"`
-	DurationValue    time.Duration `json:"durationValue"`
-	ByteValue        []byte        `json:"byteValue"`
-	DefaultValue     interface{}   `json:"defaultValue"`
-	SchemaDataFormat string        `json:"$schema.data-format"`
-	SchemaName       string        `json:"$schema.name"`
+	StringValue   string        `json:"stringValue"`
+	BoolValue     bool          `json:"boolValue"`
+	Float32Value  float32       `json:"float32Value"`
+	Float64Value  float64       `json:"float64Value"`
+	IntValue      int           `json:"intValue"`
+	Int32Value    int32         `json:"int32Value"`
+	Int64Value    int64         `json:"int64Value"`
+	NullValue     interface{}   `json:"nullValue"`
+	TimeValue     time.Time     `json:"timeValue"`
+	DurationValue time.Duration `json:"durationValue"`
+	ByteValue     []byte        `json:"byteValue"`
+	DefaultValue  interface{}   `json:"defaultValue"`
+	SchemaFormat  string        `json:"$schema.format"`
+	SchemaName    string        `json:"$schema.name"`
 }
 
 func TestMultiAppendEventsSuite(t *testing.T) {
@@ -268,7 +268,7 @@ func (s *MultiAppendTestSuite) assertMetadata(streamName string, eventType strin
 	err = json.Unmarshal(events[0].OriginalEvent().UserMetadata, &readMetadata)
 	assert.NoError(s.T(), err)
 
-	assert.Equal(s.T(), "Bytes", readMetadata.SchemaDataFormat)
+	assert.Equal(s.T(), "Bytes", readMetadata.SchemaFormat)
 	assert.Equal(s.T(), eventType, readMetadata.SchemaName)
 	assert.Equal(s.T(), "string", readMetadata.StringValue)
 	assert.Equal(s.T(), true, readMetadata.BoolValue)

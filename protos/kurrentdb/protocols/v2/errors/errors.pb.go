@@ -8,10 +8,9 @@
 // 	protoc        v5.26.0
 // source: kurrentdb/protocols/v2/errors.proto
 
-package errors
+package rpc
 
 import (
-	_ "github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/rpc"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -26,83 +25,155 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type CommonError int32
+// The canonical server error codes for the Kurrent Platform gRPC APIs.
+// These errors represent common failure modes across all Kurrent services.
+type ServerError int32
 
 const (
 	// Default value. This value is not used.
 	// An error code MUST always be set to a non-zero value.
 	// If an error code is not explicitly set, it MUST be treated as
 	// an internal server error (INTERNAL).
-	CommonError_UNSPECIFIED                     CommonError = 0
-	CommonError_COMMON_ERROR_ACCESS_DENIED      CommonError = 1
-	CommonError_COMMON_ERROR_INVALID_REQUEST    CommonError = 2
-	CommonError_COMMON_ERROR_NOT_LEADER_NODE    CommonError = 5
-	CommonError_COMMON_ERROR_OPERATION_TIMEOUT  CommonError = 6
-	CommonError_COMMON_ERROR_SERVER_NOT_READY   CommonError = 7
-	CommonError_COMMON_ERROR_SERVER_OVERLOADED  CommonError = 8
-	CommonError_COMMON_ERROR_SERVER_MALFUNCTION CommonError = 9
+	ServerError_UNSPECIFIED ServerError = 0
+	// Authentication or authorization failure.
+	// The client lacks valid credentials or sufficient permissions to perform the requested operation.
+	//
+	// Common causes:
+	// - Missing or invalid authentication tokens
+	// - Insufficient permissions for the operation
+	// - Expired credentials
+	//
+	// Client action: Check credentials, verify permissions, and re-authenticate if necessary.
+	// Not retriable without fixing the underlying authorization issue.
+	ServerError_SERVER_ERROR_ACCESS_DENIED ServerError = 1
+	// The request is malformed or contains invalid data.
+	// The server cannot process the request due to client error.
+	//
+	// Common causes:
+	// - Invalid field values (e.g., empty required fields, out-of-range numbers)
+	// - Malformed data formats
+	// - Validation failures
+	//
+	// Client action: Fix the request data and retry.
+	// Not retriable without modifying the request.
+	ServerError_SERVER_ERROR_BAD_REQUEST ServerError = 2
+	// The server is not the cluster leader and cannot process write operations.
+	// In a clustered deployment, only the leader node can accept write operations.
+	//
+	// Common causes:
+	// - Client connected to a follower node
+	// - Leader election in progress
+	// - Network partition
+	//
+	// Client action: Redirect the request to the leader node indicated in the error details.
+	// Retriable after redirecting to the correct leader node.
+	ServerError_SERVER_ERROR_NOT_LEADER_NODE ServerError = 5
+	// The operation did not complete within the configured timeout period.
+	//
+	// Common causes:
+	// - Slow disk I/O during writes
+	// - Cluster consensus delays
+	// - Network latency
+	// - Heavy server load
+	//
+	// Client action: Retry with exponential backoff. Consider increasing timeout values.
+	// Retriable - the operation may succeed on retry.
+	ServerError_SERVER_ERROR_OPERATION_TIMEOUT ServerError = 6
+	// The server is starting up or shutting down and cannot process requests.
+	//
+	// Common causes:
+	// - Server is initializing (loading indexes, recovering state)
+	// - Server is performing graceful shutdown
+	// - Server is performing maintenance operations
+	//
+	// Client action: Retry with exponential backoff. Wait for server to become ready.
+	// Retriable - the server will become available after initialization completes.
+	ServerError_SERVER_ERROR_SERVER_NOT_READY ServerError = 7
+	// The server is temporarily overloaded and cannot accept more requests.
+	// This is a backpressure mechanism to prevent server overload.
+	//
+	// Common causes:
+	// - Too many concurrent requests
+	// - Resource exhaustion (CPU, memory, disk I/O)
+	// - Rate limiting triggered
+	//
+	// Client action: Retry with exponential backoff. Reduce request rate.
+	// Retriable - the server may accept requests after load decreases.
+	ServerError_SERVER_ERROR_SERVER_OVERLOADED ServerError = 8
+	// An internal server error occurred.
+	// This indicates a bug or unexpected condition in the server.
+	//
+	// Common causes:
+	// - Unhandled exceptions
+	// - Assertion failures
+	// - Corrupted internal state
+	// - Programming errors
+	//
+	// Client action: Report to server administrators with request details.
+	// May be retriable, but likely indicates a server-side issue requiring investigation.
+	ServerError_SERVER_ERROR_SERVER_MALFUNCTION ServerError = 9
 )
 
-// Enum value maps for CommonError.
+// Enum value maps for ServerError.
 var (
-	CommonError_name = map[int32]string{
+	ServerError_name = map[int32]string{
 		0: "UNSPECIFIED",
-		1: "COMMON_ERROR_ACCESS_DENIED",
-		2: "COMMON_ERROR_INVALID_REQUEST",
-		5: "COMMON_ERROR_NOT_LEADER_NODE",
-		6: "COMMON_ERROR_OPERATION_TIMEOUT",
-		7: "COMMON_ERROR_SERVER_NOT_READY",
-		8: "COMMON_ERROR_SERVER_OVERLOADED",
-		9: "COMMON_ERROR_SERVER_MALFUNCTION",
+		1: "SERVER_ERROR_ACCESS_DENIED",
+		2: "SERVER_ERROR_BAD_REQUEST",
+		5: "SERVER_ERROR_NOT_LEADER_NODE",
+		6: "SERVER_ERROR_OPERATION_TIMEOUT",
+		7: "SERVER_ERROR_SERVER_NOT_READY",
+		8: "SERVER_ERROR_SERVER_OVERLOADED",
+		9: "SERVER_ERROR_SERVER_MALFUNCTION",
 	}
-	CommonError_value = map[string]int32{
+	ServerError_value = map[string]int32{
 		"UNSPECIFIED":                     0,
-		"COMMON_ERROR_ACCESS_DENIED":      1,
-		"COMMON_ERROR_INVALID_REQUEST":    2,
-		"COMMON_ERROR_NOT_LEADER_NODE":    5,
-		"COMMON_ERROR_OPERATION_TIMEOUT":  6,
-		"COMMON_ERROR_SERVER_NOT_READY":   7,
-		"COMMON_ERROR_SERVER_OVERLOADED":  8,
-		"COMMON_ERROR_SERVER_MALFUNCTION": 9,
+		"SERVER_ERROR_ACCESS_DENIED":      1,
+		"SERVER_ERROR_BAD_REQUEST":        2,
+		"SERVER_ERROR_NOT_LEADER_NODE":    5,
+		"SERVER_ERROR_OPERATION_TIMEOUT":  6,
+		"SERVER_ERROR_SERVER_NOT_READY":   7,
+		"SERVER_ERROR_SERVER_OVERLOADED":  8,
+		"SERVER_ERROR_SERVER_MALFUNCTION": 9,
 	}
 )
 
-func (x CommonError) Enum() *CommonError {
-	p := new(CommonError)
+func (x ServerError) Enum() *ServerError {
+	p := new(ServerError)
 	*p = x
 	return p
 }
 
-func (x CommonError) String() string {
+func (x ServerError) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (CommonError) Descriptor() protoreflect.EnumDescriptor {
+func (ServerError) Descriptor() protoreflect.EnumDescriptor {
 	return file_kurrentdb_protocols_v2_errors_proto_enumTypes[0].Descriptor()
 }
 
-func (CommonError) Type() protoreflect.EnumType {
+func (ServerError) Type() protoreflect.EnumType {
 	return &file_kurrentdb_protocols_v2_errors_proto_enumTypes[0]
 }
 
-func (x CommonError) Number() protoreflect.EnumNumber {
+func (x ServerError) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use CommonError.Descriptor instead.
-func (CommonError) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use ServerError.Descriptor instead.
+func (ServerError) EnumDescriptor() ([]byte, []int) {
 	return file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP(), []int{0}
 }
 
+// Details for ACCESS_DENIED errors.
 type AccessDeniedErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The scope in which access was denied.
-	// It could represent a resource, a domain, a permission type
-	// or a "path" that is a combination of these.
-	// (e.g., "stream:orders", "db:customers:read", etc.)
-	Scope *string `protobuf:"bytes,1,opt,name=scope,proto3,oneof" json:"scope,omitempty"`
+	// The friendly name of the operation that was denied.
+	Operation string `protobuf:"bytes,1,opt,name=operation,proto3" json:"operation,omitempty"`
 	// The username of the user who was denied access.
-	Username      *string `protobuf:"bytes,2,opt,name=username,proto3,oneof" json:"username,omitempty"`
+	Username *string `protobuf:"bytes,2,opt,name=username,proto3,oneof" json:"username,omitempty"`
+	// The permission that was required for this operation.
+	Permission    *string `protobuf:"bytes,3,opt,name=permission,proto3,oneof" json:"permission,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -137,9 +208,9 @@ func (*AccessDeniedErrorDetails) Descriptor() ([]byte, []int) {
 	return file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *AccessDeniedErrorDetails) GetScope() string {
-	if x != nil && x.Scope != nil {
-		return *x.Scope
+func (x *AccessDeniedErrorDetails) GetOperation() string {
+	if x != nil {
+		return x.Operation
 	}
 	return ""
 }
@@ -151,66 +222,25 @@ func (x *AccessDeniedErrorDetails) GetUsername() string {
 	return ""
 }
 
-type InvalidRequestErrorDetails struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Detailed information about each invalid argument.
-	Violations    []*InvalidRequestErrorDetails_FieldViolation `protobuf:"bytes,1,rep,name=violations,proto3" json:"violations,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *InvalidRequestErrorDetails) Reset() {
-	*x = InvalidRequestErrorDetails{}
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *InvalidRequestErrorDetails) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*InvalidRequestErrorDetails) ProtoMessage() {}
-
-func (x *InvalidRequestErrorDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+func (x *AccessDeniedErrorDetails) GetPermission() string {
+	if x != nil && x.Permission != nil {
+		return *x.Permission
 	}
-	return mi.MessageOf(x)
+	return ""
 }
 
-// Deprecated: Use InvalidRequestErrorDetails.ProtoReflect.Descriptor instead.
-func (*InvalidRequestErrorDetails) Descriptor() ([]byte, []int) {
-	return file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *InvalidRequestErrorDetails) GetViolations() []*InvalidRequestErrorDetails_FieldViolation {
-	if x != nil {
-		return x.Violations
-	}
-	return nil
-}
-
+// Details for NOT_LEADER_NODE errors.
 type NotLeaderNodeErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The host of the current leader node
-	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	// The port of the current leader node
-	Port int32 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
-	// The instance ID of the current leader node
-	NodeId        *string `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3,oneof" json:"node_id,omitempty"`
+	// Information about the current cluster leader node.
+	CurrentLeader *NotLeaderNodeErrorDetails_NodeInfo `protobuf:"bytes,1,opt,name=current_leader,json=currentLeader,proto3" json:"current_leader,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *NotLeaderNodeErrorDetails) Reset() {
 	*x = NotLeaderNodeErrorDetails{}
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[2]
+	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -222,7 +252,7 @@ func (x *NotLeaderNodeErrorDetails) String() string {
 func (*NotLeaderNodeErrorDetails) ProtoMessage() {}
 
 func (x *NotLeaderNodeErrorDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[2]
+	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,102 +265,44 @@ func (x *NotLeaderNodeErrorDetails) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotLeaderNodeErrorDetails.ProtoReflect.Descriptor instead.
 func (*NotLeaderNodeErrorDetails) Descriptor() ([]byte, []int) {
-	return file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP(), []int{2}
+	return file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *NotLeaderNodeErrorDetails) GetHost() string {
+func (x *NotLeaderNodeErrorDetails) GetCurrentLeader() *NotLeaderNodeErrorDetails_NodeInfo {
 	if x != nil {
-		return x.Host
+		return x.CurrentLeader
 	}
-	return ""
+	return nil
 }
 
-func (x *NotLeaderNodeErrorDetails) GetPort() int32 {
-	if x != nil {
-		return x.Port
-	}
-	return 0
-}
-
-func (x *NotLeaderNodeErrorDetails) GetNodeId() string {
-	if x != nil && x.NodeId != nil {
-		return *x.NodeId
-	}
-	return ""
-}
-
-type RetryInfoErrorDetails struct {
+// Information about a cluster node.
+type NotLeaderNodeErrorDetails_NodeInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The duration in milliseconds after which the client can retry the operation.
-	RetryDelayMs  int32 `protobuf:"varint,1,opt,name=retry_delay_ms,json=retryDelayMs,proto3" json:"retry_delay_ms,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetryInfoErrorDetails) Reset() {
-	*x = RetryInfoErrorDetails{}
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetryInfoErrorDetails) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetryInfoErrorDetails) ProtoMessage() {}
-
-func (x *RetryInfoErrorDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetryInfoErrorDetails.ProtoReflect.Descriptor instead.
-func (*RetryInfoErrorDetails) Descriptor() ([]byte, []int) {
-	return file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *RetryInfoErrorDetails) GetRetryDelayMs() int32 {
-	if x != nil {
-		return x.RetryDelayMs
-	}
-	return 0
-}
-
-type NodeInfoErrorDetails struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The host of the node
+	// The hostname or IP address of the node.
 	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	// The port of the node
+	// The gRPC port of the node.
 	Port int32 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
-	// The instance ID of the node
+	// The unique instance ID of the node.
 	NodeId        *string `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3,oneof" json:"node_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *NodeInfoErrorDetails) Reset() {
-	*x = NodeInfoErrorDetails{}
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[4]
+func (x *NotLeaderNodeErrorDetails_NodeInfo) Reset() {
+	*x = NotLeaderNodeErrorDetails_NodeInfo{}
+	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *NodeInfoErrorDetails) String() string {
+func (x *NotLeaderNodeErrorDetails_NodeInfo) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NodeInfoErrorDetails) ProtoMessage() {}
+func (*NotLeaderNodeErrorDetails_NodeInfo) ProtoMessage() {}
 
-func (x *NodeInfoErrorDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[4]
+func (x *NotLeaderNodeErrorDetails_NodeInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -341,119 +313,28 @@ func (x *NodeInfoErrorDetails) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NodeInfoErrorDetails.ProtoReflect.Descriptor instead.
-func (*NodeInfoErrorDetails) Descriptor() ([]byte, []int) {
-	return file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP(), []int{4}
+// Deprecated: Use NotLeaderNodeErrorDetails_NodeInfo.ProtoReflect.Descriptor instead.
+func (*NotLeaderNodeErrorDetails_NodeInfo) Descriptor() ([]byte, []int) {
+	return file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP(), []int{1, 0}
 }
 
-func (x *NodeInfoErrorDetails) GetHost() string {
+func (x *NotLeaderNodeErrorDetails_NodeInfo) GetHost() string {
 	if x != nil {
 		return x.Host
 	}
 	return ""
 }
 
-func (x *NodeInfoErrorDetails) GetPort() int32 {
+func (x *NotLeaderNodeErrorDetails_NodeInfo) GetPort() int32 {
 	if x != nil {
 		return x.Port
 	}
 	return 0
 }
 
-func (x *NodeInfoErrorDetails) GetNodeId() string {
+func (x *NotLeaderNodeErrorDetails_NodeInfo) GetNodeId() string {
 	if x != nil && x.NodeId != nil {
 		return *x.NodeId
-	}
-	return ""
-}
-
-// Describes a single field violation.
-type InvalidRequestErrorDetails_FieldViolation struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// A path that leads to a field in the request body. The value will be a
-	// sequence of dot-separated identifiers that identify a protocol buffer
-	// field.
-	//
-	// Consider the following:
-	//
-	//	message CreateContactRequest {
-	//	  message EmailAddress {
-	//	    enum Type {
-	//	      TYPE_UNSPECIFIED = 0;
-	//	      HOME = 1;
-	//	      WORK = 2;
-	//	    }
-	//
-	//	    optional string email = 1;
-	//	    repeated EmailType type = 2;
-	//	  }
-	//
-	//	  string full_name = 1;
-	//	  repeated EmailAddress email_addresses = 2;
-	//	}
-	//
-	// In this example, in proto `field` could take one of the following values:
-	//
-	//   - `full_name` for a violation in the `full_name` value
-	//   - `email_addresses[1].email` for a violation in the `email` field of the
-	//     first `email_addresses` message
-	//   - `email_addresses[3].type[2]` for a violation in the second `type`
-	//     value in the third `email_addresses` message.
-	//
-	// In JSON, the same values are represented as:
-	//
-	//   - `fullName` for a violation in the `fullName` value
-	//   - `emailAddresses[1].email` for a violation in the `email` field of the
-	//     first `emailAddresses` message
-	//   - `emailAddresses[3].type[2]` for a violation in the second `type`
-	//     value in the third `emailAddresses` message.
-	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
-	// A description of why the request element is bad.
-	Description   string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *InvalidRequestErrorDetails_FieldViolation) Reset() {
-	*x = InvalidRequestErrorDetails_FieldViolation{}
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *InvalidRequestErrorDetails_FieldViolation) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*InvalidRequestErrorDetails_FieldViolation) ProtoMessage() {}
-
-func (x *InvalidRequestErrorDetails_FieldViolation) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v2_errors_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use InvalidRequestErrorDetails_FieldViolation.ProtoReflect.Descriptor instead.
-func (*InvalidRequestErrorDetails_FieldViolation) Descriptor() ([]byte, []int) {
-	return file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP(), []int{1, 0}
-}
-
-func (x *InvalidRequestErrorDetails_FieldViolation) GetField() string {
-	if x != nil {
-		return x.Field
-	}
-	return ""
-}
-
-func (x *InvalidRequestErrorDetails_FieldViolation) GetDescription() string {
-	if x != nil {
-		return x.Description
 	}
 	return ""
 }
@@ -462,43 +343,32 @@ var File_kurrentdb_protocols_v2_errors_proto protoreflect.FileDescriptor
 
 const file_kurrentdb_protocols_v2_errors_proto_rawDesc = "" +
 	"\n" +
-	"#kurrentdb/protocols/v2/errors.proto\x12#kurrentdb.protocol.v2.common.errors\x1a kurrentdb/protocols/v2/rpc.proto\"m\n" +
-	"\x18AccessDeniedErrorDetails\x12\x19\n" +
-	"\x05scope\x18\x01 \x01(\tH\x00R\x05scope\x88\x01\x01\x12\x1f\n" +
-	"\busername\x18\x02 \x01(\tH\x01R\busername\x88\x01\x01B\b\n" +
-	"\x06_scopeB\v\n" +
-	"\t_username\"\xd6\x01\n" +
-	"\x1aInvalidRequestErrorDetails\x12n\n" +
+	"#kurrentdb/protocols/v2/errors.proto\x12\vkurrent.rpc\x1a kurrentdb/protocols/v2/rpc.proto\"\x9a\x01\n" +
+	"\x18AccessDeniedErrorDetails\x12\x1c\n" +
+	"\toperation\x18\x01 \x01(\tR\toperation\x12\x1f\n" +
+	"\busername\x18\x02 \x01(\tH\x00R\busername\x88\x01\x01\x12#\n" +
 	"\n" +
-	"violations\x18\x01 \x03(\v2N.kurrentdb.protocol.v2.common.errors.InvalidRequestErrorDetails.FieldViolationR\n" +
-	"violations\x1aH\n" +
-	"\x0eFieldViolation\x12\x14\n" +
-	"\x05field\x18\x01 \x01(\tR\x05field\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\"m\n" +
-	"\x19NotLeaderNodeErrorDetails\x12\x12\n" +
+	"permission\x18\x03 \x01(\tH\x01R\n" +
+	"permission\x88\x01\x01B\v\n" +
+	"\t_usernameB\r\n" +
+	"\v_permission\"\xd1\x01\n" +
+	"\x19NotLeaderNodeErrorDetails\x12V\n" +
+	"\x0ecurrent_leader\x18\x01 \x01(\v2/.kurrent.rpc.NotLeaderNodeErrorDetails.NodeInfoR\rcurrentLeader\x1a\\\n" +
+	"\bNodeInfo\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x12\n" +
 	"\x04port\x18\x02 \x01(\x05R\x04port\x12\x1c\n" +
 	"\anode_id\x18\x03 \x01(\tH\x00R\x06nodeId\x88\x01\x01B\n" +
 	"\n" +
-	"\b_node_id\"=\n" +
-	"\x15RetryInfoErrorDetails\x12$\n" +
-	"\x0eretry_delay_ms\x18\x01 \x01(\x05R\fretryDelayMs\"h\n" +
-	"\x14NodeInfoErrorDetails\x12\x12\n" +
-	"\x04host\x18\x01 \x01(\tR\x04host\x12\x12\n" +
-	"\x04port\x18\x02 \x01(\x05R\x04port\x12\x1c\n" +
-	"\anode_id\x18\x03 \x01(\tH\x00R\x06nodeId\x88\x01\x01B\n" +
-	"\n" +
-	"\b_node_id*\xd0\x02\n" +
-	"\vCommonError\x12\x0f\n" +
+	"\b_node_id*\xcc\x02\n" +
+	"\vServerError\x12\x0f\n" +
 	"\vUNSPECIFIED\x10\x00\x12(\n" +
-	"\x1aCOMMON_ERROR_ACCESS_DENIED\x10\x01\x1a\b\x82\xb5\x18\x04\b\a\x10\x01\x12*\n" +
-	"\x1cCOMMON_ERROR_INVALID_REQUEST\x10\x02\x1a\b\x82\xb5\x18\x04\b\x03\x10\x01\x12*\n" +
-	"\x1cCOMMON_ERROR_NOT_LEADER_NODE\x10\x05\x1a\b\x82\xb5\x18\x04\b\t\x10\x01\x12*\n" +
-	"\x1eCOMMON_ERROR_OPERATION_TIMEOUT\x10\x06\x1a\x06\x82\xb5\x18\x02\b\x04\x12)\n" +
-	"\x1dCOMMON_ERROR_SERVER_NOT_READY\x10\a\x1a\x06\x82\xb5\x18\x02\b\x0e\x12*\n" +
-	"\x1eCOMMON_ERROR_SERVER_OVERLOADED\x10\b\x1a\x06\x82\xb5\x18\x02\b\x0e\x12+\n" +
-	"\x1fCOMMON_ERROR_SERVER_MALFUNCTION\x10\t\x1a\x06\x82\xb5\x18\x02\b\rB\xa7\x01\n" +
-	"&io.kurrentdb.protocol.v2.common.errorsP\x01ZUgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/common/errors\xaa\x02#KurrentDB.Protocol.V2.Common.Errorsb\x06proto3"
+	"\x1aSERVER_ERROR_ACCESS_DENIED\x10\x01\x1a\b\x82\xb5\x18\x04\b\a\x10\x01\x12&\n" +
+	"\x18SERVER_ERROR_BAD_REQUEST\x10\x02\x1a\b\x82\xb5\x18\x04\b\x03\x10\x01\x12*\n" +
+	"\x1cSERVER_ERROR_NOT_LEADER_NODE\x10\x05\x1a\b\x82\xb5\x18\x04\b\t\x10\x01\x12*\n" +
+	"\x1eSERVER_ERROR_OPERATION_TIMEOUT\x10\x06\x1a\x06\x82\xb5\x18\x02\b\x04\x12)\n" +
+	"\x1dSERVER_ERROR_SERVER_NOT_READY\x10\a\x1a\x06\x82\xb5\x18\x02\b\x0e\x12*\n" +
+	"\x1eSERVER_ERROR_SERVER_OVERLOADED\x10\b\x1a\x06\x82\xb5\x18\x02\b\x0e\x12+\n" +
+	"\x1fSERVER_ERROR_SERVER_MALFUNCTION\x10\t\x1a\x06\x82\xb5\x18\x02\b\rBMZKgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/rpcb\x06proto3"
 
 var (
 	file_kurrentdb_protocols_v2_errors_proto_rawDescOnce sync.Once
@@ -513,18 +383,15 @@ func file_kurrentdb_protocols_v2_errors_proto_rawDescGZIP() []byte {
 }
 
 var file_kurrentdb_protocols_v2_errors_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_kurrentdb_protocols_v2_errors_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_kurrentdb_protocols_v2_errors_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_kurrentdb_protocols_v2_errors_proto_goTypes = []any{
-	(CommonError)(0),                                  // 0: kurrentdb.protocol.v2.common.errors.CommonError
-	(*AccessDeniedErrorDetails)(nil),                  // 1: kurrentdb.protocol.v2.common.errors.AccessDeniedErrorDetails
-	(*InvalidRequestErrorDetails)(nil),                // 2: kurrentdb.protocol.v2.common.errors.InvalidRequestErrorDetails
-	(*NotLeaderNodeErrorDetails)(nil),                 // 3: kurrentdb.protocol.v2.common.errors.NotLeaderNodeErrorDetails
-	(*RetryInfoErrorDetails)(nil),                     // 4: kurrentdb.protocol.v2.common.errors.RetryInfoErrorDetails
-	(*NodeInfoErrorDetails)(nil),                      // 5: kurrentdb.protocol.v2.common.errors.NodeInfoErrorDetails
-	(*InvalidRequestErrorDetails_FieldViolation)(nil), // 6: kurrentdb.protocol.v2.common.errors.InvalidRequestErrorDetails.FieldViolation
+	(ServerError)(0),                           // 0: kurrent.rpc.ServerError
+	(*AccessDeniedErrorDetails)(nil),           // 1: kurrent.rpc.AccessDeniedErrorDetails
+	(*NotLeaderNodeErrorDetails)(nil),          // 2: kurrent.rpc.NotLeaderNodeErrorDetails
+	(*NotLeaderNodeErrorDetails_NodeInfo)(nil), // 3: kurrent.rpc.NotLeaderNodeErrorDetails.NodeInfo
 }
 var file_kurrentdb_protocols_v2_errors_proto_depIdxs = []int32{
-	6, // 0: kurrentdb.protocol.v2.common.errors.InvalidRequestErrorDetails.violations:type_name -> kurrentdb.protocol.v2.common.errors.InvalidRequestErrorDetails.FieldViolation
+	3, // 0: kurrent.rpc.NotLeaderNodeErrorDetails.current_leader:type_name -> kurrent.rpc.NotLeaderNodeErrorDetails.NodeInfo
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -537,16 +404,16 @@ func file_kurrentdb_protocols_v2_errors_proto_init() {
 	if File_kurrentdb_protocols_v2_errors_proto != nil {
 		return
 	}
+	file_kurrentdb_protocols_v2_rpc_proto_init()
 	file_kurrentdb_protocols_v2_errors_proto_msgTypes[0].OneofWrappers = []any{}
 	file_kurrentdb_protocols_v2_errors_proto_msgTypes[2].OneofWrappers = []any{}
-	file_kurrentdb_protocols_v2_errors_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kurrentdb_protocols_v2_errors_proto_rawDesc), len(file_kurrentdb_protocols_v2_errors_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   6,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
