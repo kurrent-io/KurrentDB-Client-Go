@@ -70,12 +70,12 @@ type ErrorMetadata struct {
 	// Indicates whether this error supports rich, typed detail messages.
 	// Defaults to false (simple message string only).
 	// The message type name must be derived from the enum name by convention.
-	// Mask: {EnumValue}ErrorDetails
+	// Mask: {EnumValue}ErrorDetails, {EnumValue}Error, {EnumValue}
 	//
 	// Examples:
 	//
-	//	ACCESS_DENIED    -> "AccessDeniedErrorDetails"
-	//	SERVER_NOT_READY -> "ServerNotReadyErrorDetails"
+	//	ACCESS_DENIED    -> "AccessDeniedErrorDetails", "AccessDeniedError" or "AccessDenied"
+	//	SERVER_NOT_READY -> "ServerNotReadyErrorDetails", "ServerNotReadyError" or "ServerNotReady"
 	//
 	// Code generators use the message type name to:
 	// - Validate that the detail message matches the expected type
@@ -130,63 +130,6 @@ func (x *ErrorMetadata) GetHasDetails() bool {
 	return false
 }
 
-// The top-level error message that must be returned by any service or operation
-// in the Kurrent platform.
-type RequestErrorInfo struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The code must match one of the defined enum error codes from the module
-	// where the error originated from.
-	// A machine-readable error code that indicates the specific error condition.
-	// This should be at most 63 characters and match a regular expression of
-	// `[A-Z][A-Z0-9_]+[A-Z0-9]`, which represents UPPER_SNAKE_CASE.
-	// By convention, it will be generated from the enum value name if not
-	// explicitly specified.
-	// Conventions:
-	// - Prefix with the service name or domain to avoid collisions
-	// - Use UPPER_SNAKE_CASE with only letters, numbers, and underscores
-	// - Avoid redundant information (e.g., do not include "ERROR" suffix)
-	Code          string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RequestErrorInfo) Reset() {
-	*x = RequestErrorInfo{}
-	mi := &file_kurrentdb_protocols_v2_rpc_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RequestErrorInfo) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RequestErrorInfo) ProtoMessage() {}
-
-func (x *RequestErrorInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v2_rpc_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RequestErrorInfo.ProtoReflect.Descriptor instead.
-func (*RequestErrorInfo) Descriptor() ([]byte, []int) {
-	return file_kurrentdb_protocols_v2_rpc_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *RequestErrorInfo) GetCode() string {
-	if x != nil {
-		return x.Code
-	}
-	return ""
-}
-
 var file_kurrentdb_protocols_v2_rpc_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.EnumValueOptions)(nil),
@@ -216,11 +159,8 @@ const file_kurrentdb_protocols_v2_rpc_proto_rawDesc = "" +
 	"\vstatus_code\x18\x01 \x01(\x0e2\x10.google.rpc.CodeR\n" +
 	"statusCode\x12\x1f\n" +
 	"\vhas_details\x18\x02 \x01(\bR\n" +
-	"hasDetails\"&\n" +
-	"\x10RequestErrorInfo\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\tR\x04code:X\n" +
-	"\x05error\x12!.google.protobuf.EnumValueOptions\x18І\x03 \x01(\v2\x1a.kurrent.rpc.ErrorMetadataR\x05error\x88\x01\x01Bm\n" +
-	"\x0eio.kurrent.rpcP\x01ZKgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/rpc\xaa\x02\vKurrent.Rpcb\x06proto3"
+	"hasDetails:X\n" +
+	"\x05error\x12!.google.protobuf.EnumValueOptions\x18І\x03 \x01(\v2\x1a.kurrent.rpc.ErrorMetadataR\x05error\x88\x01\x01BMZKgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/rpcb\x06proto3"
 
 var (
 	file_kurrentdb_protocols_v2_rpc_proto_rawDescOnce sync.Once
@@ -234,16 +174,15 @@ func file_kurrentdb_protocols_v2_rpc_proto_rawDescGZIP() []byte {
 	return file_kurrentdb_protocols_v2_rpc_proto_rawDescData
 }
 
-var file_kurrentdb_protocols_v2_rpc_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_kurrentdb_protocols_v2_rpc_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_kurrentdb_protocols_v2_rpc_proto_goTypes = []any{
 	(*ErrorMetadata)(nil),                 // 0: kurrent.rpc.ErrorMetadata
-	(*RequestErrorInfo)(nil),              // 1: kurrent.rpc.RequestErrorInfo
-	(code.Code)(0),                        // 2: google.rpc.Code
-	(*descriptorpb.EnumValueOptions)(nil), // 3: google.protobuf.EnumValueOptions
+	(code.Code)(0),                        // 1: google.rpc.Code
+	(*descriptorpb.EnumValueOptions)(nil), // 2: google.protobuf.EnumValueOptions
 }
 var file_kurrentdb_protocols_v2_rpc_proto_depIdxs = []int32{
-	2, // 0: kurrent.rpc.ErrorMetadata.status_code:type_name -> google.rpc.Code
-	3, // 1: kurrent.rpc.error:extendee -> google.protobuf.EnumValueOptions
+	1, // 0: kurrent.rpc.ErrorMetadata.status_code:type_name -> google.rpc.Code
+	2, // 1: kurrent.rpc.error:extendee -> google.protobuf.EnumValueOptions
 	0, // 2: kurrent.rpc.error:type_name -> kurrent.rpc.ErrorMetadata
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
@@ -263,7 +202,7 @@ func file_kurrentdb_protocols_v2_rpc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kurrentdb_protocols_v2_rpc_proto_rawDesc), len(file_kurrentdb_protocols_v2_rpc_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   1,
 			NumExtensions: 1,
 			NumServices:   0,
 		},

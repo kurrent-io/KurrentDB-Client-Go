@@ -83,19 +83,22 @@ func (SchemaFormat) EnumDescriptor() ([]byte, []int) {
 	return file_kurrentdb_protocols_v2_streams_streams_proto_rawDescGZIP(), []int{0}
 }
 
-// Constants that match the expected state of a stream during an
-// append operation. It can be used to specify whether the stream should exist,
-// not exist, or can be in any state.
+// Constants for expected revision validation in optimistic concurrency control.
+// These can be used in the expected_revision field, or you can specify an actual revision number.
 type ExpectedRevisionConstants int32
 
 const (
-	// The stream should exist and have a single event.
+	// The stream must have exactly one event at revision 0.
+	// Used for scenarios requiring strict single-event semantics.
 	ExpectedRevisionConstants_EXPECTED_REVISION_CONSTANTS_SINGLE_EVENT ExpectedRevisionConstants = 0
-	// It is not important whether the stream exists or not.
-	ExpectedRevisionConstants_EXPECTED_REVISION_CONSTANTS_ANY ExpectedRevisionConstants = -2
-	// The stream should not exist. If it does, the append will fail.
+	// The stream must not exist yet (first write to the stream).
+	// Fails if the stream already has events.
 	ExpectedRevisionConstants_EXPECTED_REVISION_CONSTANTS_NO_STREAM ExpectedRevisionConstants = -1
-	// The stream should exist
+	// Accept any current state of the stream (no optimistic concurrency check).
+	// The write will succeed regardless of the stream's current revision.
+	ExpectedRevisionConstants_EXPECTED_REVISION_CONSTANTS_ANY ExpectedRevisionConstants = -2
+	// The stream must exist (have at least one record).
+	// Fails if the stream doesn't exist yet.
 	ExpectedRevisionConstants_EXPECTED_REVISION_CONSTANTS_EXISTS ExpectedRevisionConstants = -4
 )
 
@@ -103,14 +106,14 @@ const (
 var (
 	ExpectedRevisionConstants_name = map[int32]string{
 		0:  "EXPECTED_REVISION_CONSTANTS_SINGLE_EVENT",
-		-2: "EXPECTED_REVISION_CONSTANTS_ANY",
 		-1: "EXPECTED_REVISION_CONSTANTS_NO_STREAM",
+		-2: "EXPECTED_REVISION_CONSTANTS_ANY",
 		-4: "EXPECTED_REVISION_CONSTANTS_EXISTS",
 	}
 	ExpectedRevisionConstants_value = map[string]int32{
 		"EXPECTED_REVISION_CONSTANTS_SINGLE_EVENT": 0,
-		"EXPECTED_REVISION_CONSTANTS_ANY":          -2,
 		"EXPECTED_REVISION_CONSTANTS_NO_STREAM":    -1,
+		"EXPECTED_REVISION_CONSTANTS_ANY":          -2,
 		"EXPECTED_REVISION_CONSTANTS_EXISTS":       -4,
 	}
 )
@@ -145,15 +148,16 @@ func (ExpectedRevisionConstants) EnumDescriptor() ([]byte, []int) {
 // Represents the input for appending records to a specific stream.
 type AppendRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the stream to append records to.
+	// The stream to append records to.
 	Stream string `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
 	// The records to append to the stream.
 	Records []*AppendRecord `protobuf:"bytes,2,rep,name=records,proto3" json:"records,omitempty"`
-	// The expected revision of the stream. If the stream's current revision does
-	// not match, the append will fail.
-	// The expected revision can also be one of the special values
-	// from ExpectedRevisionConstants.
-	// Missing value means no expectation, the same as EXPECTED_REVISION_CONSTANTS_ANY
+	// The expected revision for optimistic concurrency control.
+	// Can be either:
+	// - A specific revision number (0, 1, 2, ...) - the stream must be at exactly this revision
+	// - An ExpectedRevisionConstants value (-4, -2, -1) for special semantics
+	//
+	// If omitted, defaults to EXPECTED_REVISION_CONSTANTS_ANY (-2).
 	ExpectedRevision *int64 `protobuf:"zigzag64,3,opt,name=expected_revision,json=expectedRevision,proto3,oneof" json:"expected_revision,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -213,12 +217,13 @@ func (x *AppendRequest) GetExpectedRevision() int64 {
 // Represents the outcome of an append operation.
 type AppendResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the stream to which records were appended.
+	// The stream to which records were appended.
 	Stream string `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
-	// The expected revision of the stream after the append operation.
-	StreamRevision int64 `protobuf:"varint,2,opt,name=stream_revision,json=streamRevision,proto3" json:"stream_revision,omitempty"`
-	// The position of the last appended record in the stream.
-	Position      *int64 `protobuf:"varint,4,opt,name=position,proto3,oneof" json:"position,omitempty"`
+	// The actual/current revision of the stream after the append.
+	// This is the revision number of the last record written to this stream.
+	StreamRevision int64 `protobuf:"zigzag64,2,opt,name=stream_revision,json=streamRevision,proto3" json:"stream_revision,omitempty"`
+	// The position of the last appended record in the global log.
+	Position      *int64 `protobuf:"zigzag64,3,opt,name=position,proto3,oneof" json:"position,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -278,8 +283,8 @@ type AppendSessionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The results of each append request in the session.
 	Output []*AppendResponse `protobuf:"bytes,1,rep,name=output,proto3" json:"output,omitempty"`
-	// The position of the last appended record in the session.
-	Position      int64 `protobuf:"varint,2,opt,name=position,proto3" json:"position,omitempty"`
+	// The global commit position of the last appended record in the session.
+	Position      int64 `protobuf:"zigzag64,2,opt,name=position,proto3" json:"position,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -328,11 +333,20 @@ func (x *AppendSessionResponse) GetPosition() int64 {
 	return 0
 }
 
+// Schema information for record validation and interpretation.
 type SchemaInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The format of the schema that the record conforms to.
+	// The format of the data payload.
+	// Determines how the bytes in AppendRecord.data should be interpreted.
 	Format SchemaFormat `protobuf:"varint,1,opt,name=format,proto3,enum=kurrentdb.protocol.v2.streams.SchemaFormat" json:"format,omitempty"`
-	// The name of the schema that the record conforms to.
+	// The schema name (replaces the legacy "event type" concept).
+	// Identifies what kind of data this record contains.
+	//
+	// Common naming formats:
+	//   - Kebab-case: "order-placed", "customer-registered"
+	//   - URN format: "urn:kurrentdb:events:order-placed:v1"
+	//   - Dotted namespace: "Teams.Player.V1", "Orders.OrderPlaced.V2"
+	//   - Reverse domain: "com.acme.orders.placed"
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The identifier of the specific version of the schema that the record payload
 	// conforms to. This should match a registered schema version in the system.
@@ -396,23 +410,31 @@ func (x *SchemaInfo) GetId() string {
 // Record to be appended to a stream.
 type AppendRecord struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Universally Unique identifier for the record. Must be a guid.
+	// Unique identifier for this record (must be a valid UUID/GUID).
 	// If not provided, the server will generate a new one.
 	RecordId *string `protobuf:"bytes,1,opt,name=record_id,json=recordId,proto3,oneof" json:"record_id,omitempty"`
-	// The timestamp of when the record was created, represented as
-	// milliseconds since the Unix epoch. This is primarily for
-	// informational purposes and does not affect the ordering of records
-	// within the stream, which is determined by the server.
-	// If not provided, the server will assign it upon receipt.
-	Timestamp *int64 `protobuf:"varint,2,opt,name=timestamp,proto3,oneof" json:"timestamp,omitempty"`
 	// A collection of properties providing additional information about the
-	// record. This can include user-defined metadata or system properties.
-	// System properties are uniquely identified by the "$." prefix.
-	Properties map[string]*structpb.Value `protobuf:"bytes,3,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Information about the schema that the record payload conforms to.
-	Schema *SchemaInfo `protobuf:"bytes,4,opt,name=schema,proto3" json:"schema,omitempty"`
-	// The actual data payload of the record.
-	Data          []byte `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
+	// record. Can contain user-defined or system propreties.
+	// System keys will be prefixed with "$" (e.g., "$timestamp").
+	// User-defined keys MUST NOT start with "$".
+	//
+	// Common examples:
+	//
+	//	User metadata:
+	//	  - "user-id": "12345"
+	//	  - "tenant": "acme-corp"
+	//	  - "source": "mobile-app"
+	//
+	//	System metadata (with $ prefix):
+	//	  - "$trace-id": "4bf92f3577b34da6a3ce929d0e0e4736"  // OpenTelemetry trace ID
+	//	  - "$span-id": "00f067aa0ba902b7"                   // OpenTelemetry span ID
+	//	  - "$timestamp": "2025-01-15T10:30:00.000Z"         // ISO 8601 timestamp
+	Properties map[string]*structpb.Value `protobuf:"bytes,2,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Schema information for this record.
+	Schema *SchemaInfo `protobuf:"bytes,3,opt,name=schema,proto3" json:"schema,omitempty"`
+	// The record payload as raw bytes.
+	// The format specified in SchemaInfo determines how to interpret these bytes.
+	Data          []byte `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -454,13 +476,6 @@ func (x *AppendRecord) GetRecordId() string {
 	return ""
 }
 
-func (x *AppendRecord) GetTimestamp() int64 {
-	if x != nil && x.Timestamp != nil {
-		return *x.Timestamp
-	}
-	return 0
-}
-
 func (x *AppendRecord) GetProperties() map[string]*structpb.Value {
 	if x != nil {
 		return x.Properties
@@ -486,41 +501,38 @@ var File_kurrentdb_protocols_v2_streams_streams_proto protoreflect.FileDescripto
 
 const file_kurrentdb_protocols_v2_streams_streams_proto_rawDesc = "" +
 	"\n" +
-	",kurrentdb/protocols/v2/streams/streams.proto\x12\x1dkurrentdb.protocol.v2.streams\x1a\x1cgoogle/protobuf/struct.proto\"\xba\x01\n" +
+	",kurrentdb/protocols/v2/streams/streams.proto\x12\x1dkurrentdb.protocol.v2.streams\x1a\x1cgoogle/protobuf/struct.proto\"\xb6\x01\n" +
 	"\rAppendRequest\x12\x16\n" +
 	"\x06stream\x18\x01 \x01(\tR\x06stream\x12E\n" +
-	"\arecords\x18\x02 \x03(\v2+.kurrentdb.protocol.v2.streams.AppendRecordR\arecords\x124\n" +
-	"\x11expected_revision\x18\x03 \x01(\x12B\x020\x01H\x00R\x10expectedRevision\x88\x01\x01B\x14\n" +
-	"\x12_expected_revision\"\x87\x01\n" +
+	"\arecords\x18\x02 \x03(\v2+.kurrentdb.protocol.v2.streams.AppendRecordR\arecords\x120\n" +
+	"\x11expected_revision\x18\x03 \x01(\x12H\x00R\x10expectedRevision\x88\x01\x01B\x14\n" +
+	"\x12_expected_revision\"\x7f\n" +
 	"\x0eAppendResponse\x12\x16\n" +
-	"\x06stream\x18\x01 \x01(\tR\x06stream\x12+\n" +
-	"\x0fstream_revision\x18\x02 \x01(\x03B\x020\x01R\x0estreamRevision\x12#\n" +
-	"\bposition\x18\x04 \x01(\x03B\x020\x01H\x00R\bposition\x88\x01\x01B\v\n" +
-	"\t_position\"~\n" +
+	"\x06stream\x18\x01 \x01(\tR\x06stream\x12'\n" +
+	"\x0fstream_revision\x18\x02 \x01(\x12R\x0estreamRevision\x12\x1f\n" +
+	"\bposition\x18\x03 \x01(\x12H\x00R\bposition\x88\x01\x01B\v\n" +
+	"\t_position\"z\n" +
 	"\x15AppendSessionResponse\x12E\n" +
-	"\x06output\x18\x01 \x03(\v2-.kurrentdb.protocol.v2.streams.AppendResponseR\x06output\x12\x1e\n" +
-	"\bposition\x18\x02 \x01(\x03B\x020\x01R\bposition\"\x81\x01\n" +
+	"\x06output\x18\x01 \x03(\v2-.kurrentdb.protocol.v2.streams.AppendResponseR\x06output\x12\x1a\n" +
+	"\bposition\x18\x02 \x01(\x12R\bposition\"\x81\x01\n" +
 	"\n" +
 	"SchemaInfo\x12C\n" +
 	"\x06format\x18\x01 \x01(\x0e2+.kurrentdb.protocol.v2.streams.SchemaFormatR\x06format\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x13\n" +
 	"\x02id\x18\x03 \x01(\tH\x00R\x02id\x88\x01\x01B\x05\n" +
-	"\x03_id\"\xfe\x02\n" +
+	"\x03_id\"\xc9\x02\n" +
 	"\fAppendRecord\x12 \n" +
-	"\trecord_id\x18\x01 \x01(\tH\x00R\brecordId\x88\x01\x01\x12%\n" +
-	"\ttimestamp\x18\x02 \x01(\x03B\x020\x01H\x01R\ttimestamp\x88\x01\x01\x12[\n" +
+	"\trecord_id\x18\x01 \x01(\tH\x00R\brecordId\x88\x01\x01\x12[\n" +
 	"\n" +
-	"properties\x18\x03 \x03(\v2;.kurrentdb.protocol.v2.streams.AppendRecord.PropertiesEntryR\n" +
+	"properties\x18\x02 \x03(\v2;.kurrentdb.protocol.v2.streams.AppendRecord.PropertiesEntryR\n" +
 	"properties\x12A\n" +
-	"\x06schema\x18\x04 \x01(\v2).kurrentdb.protocol.v2.streams.SchemaInfoR\x06schema\x12\x12\n" +
-	"\x04data\x18\x05 \x01(\fR\x04data\x1aU\n" +
+	"\x06schema\x18\x03 \x01(\v2).kurrentdb.protocol.v2.streams.SchemaInfoR\x06schema\x12\x12\n" +
+	"\x04data\x18\x04 \x01(\fR\x04data\x1aU\n" +
 	"\x0fPropertiesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01B\f\n" +
 	"\n" +
-	"_record_idB\f\n" +
-	"\n" +
-	"_timestamp*\x92\x01\n" +
+	"_record_id*\x92\x01\n" +
 	"\fSchemaFormat\x12\x1d\n" +
 	"\x19SCHEMA_FORMAT_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12SCHEMA_FORMAT_JSON\x10\x01\x12\x1a\n" +
@@ -528,14 +540,12 @@ const file_kurrentdb_protocols_v2_streams_streams_proto_rawDesc = "" +
 	"\x12SCHEMA_FORMAT_AVRO\x10\x03\x12\x17\n" +
 	"\x13SCHEMA_FORMAT_BYTES\x10\x04*\xdc\x01\n" +
 	"\x19ExpectedRevisionConstants\x12,\n" +
-	"(EXPECTED_REVISION_CONSTANTS_SINGLE_EVENT\x10\x00\x12,\n" +
-	"\x1fEXPECTED_REVISION_CONSTANTS_ANY\x10\xfe\xff\xff\xff\xff\xff\xff\xff\xff\x01\x122\n" +
-	"%EXPECTED_REVISION_CONSTANTS_NO_STREAM\x10\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01\x12/\n" +
-	"\"EXPECTED_REVISION_CONSTANTS_EXISTS\x10\xfc\xff\xff\xff\xff\xff\xff\xff\xff\x012\xee\x01\n" +
-	"\x0eStreamsService\x12e\n" +
-	"\x06Append\x12,.kurrentdb.protocol.v2.streams.AppendRequest\x1a-.kurrentdb.protocol.v2.streams.AppendResponse\x12u\n" +
-	"\rAppendSession\x12,.kurrentdb.protocol.v2.streams.AppendRequest\x1a4.kurrentdb.protocol.v2.streams.AppendSessionResponse(\x01B\x95\x01\n" +
-	" io.kurrentdb.protocol.v2.streamsP\x01ZOgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streams\xaa\x02\x1dKurrentDB.Protocol.Streams.V2b\x06proto3"
+	"(EXPECTED_REVISION_CONSTANTS_SINGLE_EVENT\x10\x00\x122\n" +
+	"%EXPECTED_REVISION_CONSTANTS_NO_STREAM\x10\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01\x12,\n" +
+	"\x1fEXPECTED_REVISION_CONSTANTS_ANY\x10\xfe\xff\xff\xff\xff\xff\xff\xff\xff\x01\x12/\n" +
+	"\"EXPECTED_REVISION_CONSTANTS_EXISTS\x10\xfc\xff\xff\xff\xff\xff\xff\xff\xff\x012\x87\x01\n" +
+	"\x0eStreamsService\x12u\n" +
+	"\rAppendSession\x12,.kurrentdb.protocol.v2.streams.AppendRequest\x1a4.kurrentdb.protocol.v2.streams.AppendSessionResponse(\x01BQZOgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streamsb\x06proto3"
 
 var (
 	file_kurrentdb_protocols_v2_streams_streams_proto_rawDescOnce sync.Once
@@ -569,12 +579,10 @@ var file_kurrentdb_protocols_v2_streams_streams_proto_depIdxs = []int32{
 	7, // 3: kurrentdb.protocol.v2.streams.AppendRecord.properties:type_name -> kurrentdb.protocol.v2.streams.AppendRecord.PropertiesEntry
 	5, // 4: kurrentdb.protocol.v2.streams.AppendRecord.schema:type_name -> kurrentdb.protocol.v2.streams.SchemaInfo
 	8, // 5: kurrentdb.protocol.v2.streams.AppendRecord.PropertiesEntry.value:type_name -> google.protobuf.Value
-	2, // 6: kurrentdb.protocol.v2.streams.StreamsService.Append:input_type -> kurrentdb.protocol.v2.streams.AppendRequest
-	2, // 7: kurrentdb.protocol.v2.streams.StreamsService.AppendSession:input_type -> kurrentdb.protocol.v2.streams.AppendRequest
-	3, // 8: kurrentdb.protocol.v2.streams.StreamsService.Append:output_type -> kurrentdb.protocol.v2.streams.AppendResponse
-	4, // 9: kurrentdb.protocol.v2.streams.StreamsService.AppendSession:output_type -> kurrentdb.protocol.v2.streams.AppendSessionResponse
-	8, // [8:10] is the sub-list for method output_type
-	6, // [6:8] is the sub-list for method input_type
+	2, // 6: kurrentdb.protocol.v2.streams.StreamsService.AppendSession:input_type -> kurrentdb.protocol.v2.streams.AppendRequest
+	4, // 7: kurrentdb.protocol.v2.streams.StreamsService.AppendSession:output_type -> kurrentdb.protocol.v2.streams.AppendSessionResponse
+	7, // [7:8] is the sub-list for method output_type
+	6, // [6:7] is the sub-list for method input_type
 	6, // [6:6] is the sub-list for extension type_name
 	6, // [6:6] is the sub-list for extension extendee
 	0, // [0:6] is the sub-list for field type_name

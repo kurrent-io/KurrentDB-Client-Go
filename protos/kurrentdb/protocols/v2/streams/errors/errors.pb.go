@@ -26,6 +26,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Error codes specific to the Streams API.
+// These errors represent failure modes when working with streams of records.
 type StreamsError int32
 
 const (
@@ -34,30 +36,97 @@ const (
 	// If an error code is not explicitly set, it MUST be treated as
 	// an internal server error (INTERNAL).
 	StreamsError_STREAMS_ERROR_UNSPECIFIED StreamsError = 0
-	// The stream was not found.
-	// This is recoverable by the client by creating the stream first.
+	// The requested stream does not exist in the database.
+	//
+	// Common causes:
+	// - Stream name typo or incorrect stream identifier
+	// - Stream was never created (no events appended yet)
+	// - Stream was deleted and not yet recreated
+	//
+	// Client action: Verify the stream name is correct. Create the stream by appending to it.
+	// Recoverable by creating the stream first (append with NO_STREAM expected revision).
 	StreamsError_STREAMS_ERROR_STREAM_NOT_FOUND StreamsError = 1
-	// The stream already exists.
-	// This is recoverable by the client by using the existing stream.
+	// The stream already exists when an operation expected it not to exist.
+	//
+	// Common causes:
+	// - Attempting to create a stream that already has events
+	// - Using NO_STREAM expected revision on an existing stream
+	// - Race condition with concurrent stream creation
+	//
+	// Client action: Use the existing stream or use a different expected revision.
+	// Recoverable by adjusting the expected revision or using the existing stream.
 	StreamsError_STREAMS_ERROR_STREAM_ALREADY_EXISTS StreamsError = 2
 	// The stream has been soft deleted.
-	// It will not be visible in the stream list, until it is restored by appending to it again.
+	// Soft-deleted streams are hidden from stream lists but can be restored by appending to them.
+	//
+	// Common causes:
+	// - Stream was explicitly soft-deleted via delete operation
+	// - Attempting to read from a soft-deleted stream
+	//
+	// Client action: Restore the stream by appending new events, or accept that the stream is deleted.
+	// Recoverable by appending to the stream to restore it.
 	StreamsError_STREAMS_ERROR_STREAM_DELETED StreamsError = 3
-	// The stream has been tombstoned.
-	// It has been permanently removed from the system and cannot be restored.
+	// The stream has been tombstoned (permanently deleted).
+	// Tombstoned streams cannot be restored and will never accept new events.
+	//
+	// Common causes:
+	// - Stream was explicitly tombstoned via tombstone operation
+	// - Administrative deletion of sensitive data
+	// - Attempting to write to or read from a tombstoned stream
+	//
+	// Client action: Stream is permanently removed. Create a new stream with a different name if needed.
+	// Not recoverable - the stream cannot be restored.
 	StreamsError_STREAMS_ERROR_STREAM_TOMBSTONED StreamsError = 4
-	// The expected revision of the stream does not match the actual revision.
-	// This is recoverable by the client by fetching the current revision and retrying.
+	// The expected revision does not match the actual stream revision.
+	// This is an optimistic concurrency control failure.
+	//
+	// Common causes:
+	// - Another client modified the stream concurrently
+	// - Client has stale state about the stream revision
+	// - Race condition in distributed system
+	//
+	// Client action: Fetch the current stream revision and retry with the correct expected revision.
+	// Recoverable by reading the current state and retrying with proper optimistic concurrency control.
 	StreamsError_STREAMS_ERROR_STREAM_REVISION_CONFLICT StreamsError = 5
-	// The size of a record being appended exceeds the maximum allowed size.
-	// It is recoverable by the client by sending a smaller record.
+	// A single record being appended exceeds the maximum allowed size.
+	//
+	// Common causes:
+	// - Record payload is too large (exceeds server's max record size configuration)
+	// - Excessive metadata in properties
+	// - Large binary data without chunking
+	//
+	// Client action: Reduce record size, split large payloads across multiple records, or increase server limits.
+	// Recoverable by reducing record size or adjusting server configuration.
 	StreamsError_STREAMS_ERROR_APPEND_RECORD_SIZE_EXCEEDED StreamsError = 6
-	// When the transaction exceeds the maximum size allowed (max chunk size).
-	// It is recoverable by the client by sending a smaller transaction.
+	// The total size of all records in a single append session exceeds the maximum allowed transaction size.
+	//
+	// Common causes:
+	// - Too many records in a single append session
+	// - Combined payload size exceeds server's max transaction size
+	// - Attempting to write very large batches
+	//
+	// Client action: Split the append into multiple smaller transactions.
+	// Recoverable by reducing the number of records per append session.
 	StreamsError_STREAMS_ERROR_APPEND_TRANSACTION_SIZE_EXCEEDED StreamsError = 7
-	// The stream is already in an append session.
-	// Appending to the same stream multiple times is currently not supported.
+	// The same stream appears multiple times in a single append session.
+	// This is currently not supported to prevent complexity with expected revisions and ordering.
+	//
+	// Common causes:
+	// - Accidentally appending to the same stream twice in one session
+	// - Application logic error in batch operations
+	//
+	// Client action: Remove duplicate streams from the append session or split into multiple sessions.
+	// Recoverable by restructuring the append session to reference each stream only once.
 	StreamsError_STREAMS_ERROR_STREAM_ALREADY_IN_APPEND_SESSION StreamsError = 8
+	// An append session was started but no append requests were sent before completing the stream.
+	//
+	// Common causes:
+	// - Client completed the stream without sending any AppendRequest messages
+	// - Application logic error
+	//
+	// Client action: Ensure at least one AppendRequest is sent before completing the stream.
+	// Recoverable by properly implementing the append session protocol.
+	StreamsError_STREAMS_ERROR_APPEND_SESSION_NO_REQUESTS StreamsError = 9
 )
 
 // Enum value maps for StreamsError.
@@ -72,6 +141,7 @@ var (
 		6: "STREAMS_ERROR_APPEND_RECORD_SIZE_EXCEEDED",
 		7: "STREAMS_ERROR_APPEND_TRANSACTION_SIZE_EXCEEDED",
 		8: "STREAMS_ERROR_STREAM_ALREADY_IN_APPEND_SESSION",
+		9: "STREAMS_ERROR_APPEND_SESSION_NO_REQUESTS",
 	}
 	StreamsError_value = map[string]int32{
 		"STREAMS_ERROR_UNSPECIFIED":                      0,
@@ -83,6 +153,7 @@ var (
 		"STREAMS_ERROR_APPEND_RECORD_SIZE_EXCEEDED":      6,
 		"STREAMS_ERROR_APPEND_TRANSACTION_SIZE_EXCEEDED": 7,
 		"STREAMS_ERROR_STREAM_ALREADY_IN_APPEND_SESSION": 8,
+		"STREAMS_ERROR_APPEND_SESSION_NO_REQUESTS":       9,
 	}
 )
 
@@ -113,6 +184,7 @@ func (StreamsError) EnumDescriptor() ([]byte, []int) {
 	return file_kurrentdb_protocols_v2_streams_errors_proto_rawDescGZIP(), []int{0}
 }
 
+// Details for STREAM_NOT_FOUND errors.
 type StreamNotFoundErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the stream that was not found.
@@ -158,6 +230,7 @@ func (x *StreamNotFoundErrorDetails) GetStream() string {
 	return ""
 }
 
+// Details for STREAM_ALREADY_EXISTS errors.
 type StreamAlreadyExistsErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the stream that already exists.
@@ -203,6 +276,7 @@ func (x *StreamAlreadyExistsErrorDetails) GetStream() string {
 	return ""
 }
 
+// Details for STREAM_DELETED errors.
 type StreamDeletedErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the stream that was deleted.
@@ -248,6 +322,7 @@ func (x *StreamDeletedErrorDetails) GetStream() string {
 	return ""
 }
 
+// Details for STREAM_TOMBSTONED errors.
 type StreamTombstonedErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the stream that was tombstoned.
@@ -293,14 +368,15 @@ func (x *StreamTombstonedErrorDetails) GetStream() string {
 	return ""
 }
 
+// Details for STREAM_REVISION_CONFLICT errors.
 type StreamRevisionConflictErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the stream that had a revision conflict.
 	Stream string `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
-	// The actual revision of the stream.
-	ExpectedRevision int64 `protobuf:"varint,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
-	// The actual revision of the stream.
-	ActualRevision int64 `protobuf:"varint,3,opt,name=actual_revision,json=actualRevision,proto3" json:"actual_revision,omitempty"`
+	// The expected revision that was provided in the append request.
+	ExpectedRevision int64 `protobuf:"zigzag64,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	// The actual current revision of the stream.
+	ActualRevision int64 `protobuf:"zigzag64,3,opt,name=actual_revision,json=actualRevision,proto3" json:"actual_revision,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -356,15 +432,16 @@ func (x *StreamRevisionConflictErrorDetails) GetActualRevision() int64 {
 	return 0
 }
 
+// Details for APPEND_RECORD_SIZE_EXCEEDED errors.
 type AppendRecordSizeExceededErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the stream where the append was attempted.
 	Stream string `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
-	// The identifier of the offending and oversized record.
+	// The identifier of the record that exceeded the size limit.
 	RecordId string `protobuf:"bytes,2,opt,name=record_id,json=recordId,proto3" json:"record_id,omitempty"`
-	// The size of the huge record in bytes.
+	// The actual size of the record in bytes.
 	Size int32 `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
-	// The maximum allowed size of a single record that can be appended in bytes.
+	// The maximum allowed size of a single record in bytes.
 	MaxSize       int32 `protobuf:"varint,4,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -428,11 +505,12 @@ func (x *AppendRecordSizeExceededErrorDetails) GetMaxSize() int32 {
 	return 0
 }
 
+// Details for APPEND_TRANSACTION_SIZE_EXCEEDED errors.
 type AppendTransactionSizeExceededErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The size of the huge transaction in bytes.
+	// The actual size of the transaction in bytes.
 	Size int32 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	// The maximum allowed size of the append transaction in bytes.
+	// The maximum allowed size of an append transaction in bytes.
 	MaxSize       int32 `protobuf:"varint,2,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -482,9 +560,10 @@ func (x *AppendTransactionSizeExceededErrorDetails) GetMaxSize() int32 {
 	return 0
 }
 
+// Details for STREAM_ALREADY_IN_APPEND_SESSION errors.
 type StreamAlreadyInAppendSessionErrorDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the stream that is already in an append session.
+	// The name of the stream that appears multiple times.
 	Stream        string `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -539,11 +618,11 @@ const file_kurrentdb_protocols_v2_streams_errors_proto_rawDesc = "" +
 	"\x19StreamDeletedErrorDetails\x12\x16\n" +
 	"\x06stream\x18\x01 \x01(\tR\x06stream\"6\n" +
 	"\x1cStreamTombstonedErrorDetails\x12\x16\n" +
-	"\x06stream\x18\x01 \x01(\tR\x06stream\"\x9a\x01\n" +
+	"\x06stream\x18\x01 \x01(\tR\x06stream\"\x92\x01\n" +
 	"\"StreamRevisionConflictErrorDetails\x12\x16\n" +
-	"\x06stream\x18\x01 \x01(\tR\x06stream\x12/\n" +
-	"\x11expected_revision\x18\x02 \x01(\x03B\x020\x01R\x10expectedRevision\x12+\n" +
-	"\x0factual_revision\x18\x03 \x01(\x03B\x020\x01R\x0eactualRevision\"\x8a\x01\n" +
+	"\x06stream\x18\x01 \x01(\tR\x06stream\x12+\n" +
+	"\x11expected_revision\x18\x02 \x01(\x12R\x10expectedRevision\x12'\n" +
+	"\x0factual_revision\x18\x03 \x01(\x12R\x0eactualRevision\"\x8a\x01\n" +
 	"$AppendRecordSizeExceededErrorDetails\x12\x16\n" +
 	"\x06stream\x18\x01 \x01(\tR\x06stream\x12\x1b\n" +
 	"\trecord_id\x18\x02 \x01(\tR\brecordId\x12\x12\n" +
@@ -553,7 +632,7 @@ const file_kurrentdb_protocols_v2_streams_errors_proto_rawDesc = "" +
 	"\x04size\x18\x01 \x01(\x05R\x04size\x12\x19\n" +
 	"\bmax_size\x18\x02 \x01(\x05R\amaxSize\"B\n" +
 	"(StreamAlreadyInAppendSessionErrorDetails\x12\x16\n" +
-	"\x06stream\x18\x01 \x01(\tR\x06stream*\xd4\x03\n" +
+	"\x06stream\x18\x01 \x01(\tR\x06stream*\x8a\x04\n" +
 	"\fStreamsError\x12\x1d\n" +
 	"\x19STREAMS_ERROR_UNSPECIFIED\x10\x00\x12,\n" +
 	"\x1eSTREAMS_ERROR_STREAM_NOT_FOUND\x10\x01\x1a\b\x82\xb5\x18\x04\b\x05\x10\x01\x121\n" +
@@ -565,8 +644,8 @@ const file_kurrentdb_protocols_v2_streams_errors_proto_rawDesc = "" +
 	".STREAMS_ERROR_APPEND_TRANSACTION_SIZE_EXCEEDED\x10\a\x1a\b\x82\xb5\x18\x04\b\n" +
 	"\x10\x01\x12<\n" +
 	".STREAMS_ERROR_STREAM_ALREADY_IN_APPEND_SESSION\x10\b\x1a\b\x82\xb5\x18\x04\b\n" +
-	"\x10\x01B\xa3\x01\n" +
-	"'io.kurrentdb.protocol.v2.streams.errorsP\x01ZOgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streams\xaa\x02$KurrentDB.Protocol.V2.Streams.Errorsb\x06proto3"
+	"\x10\x01\x124\n" +
+	"(STREAMS_ERROR_APPEND_SESSION_NO_REQUESTS\x10\t\x1a\x06\x82\xb5\x18\x02\b\tBQZOgithub.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v2/streamsb\x06proto3"
 
 var (
 	file_kurrentdb_protocols_v2_streams_errors_proto_rawDescOnce sync.Once
