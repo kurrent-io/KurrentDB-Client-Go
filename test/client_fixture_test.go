@@ -149,6 +149,35 @@ func (f *ClientFixture) CreateTestEvents(streamId string, count uint32) []kurren
 	return events
 }
 
+func (f *ClientFixture) DeleteStream(streamId string) {
+	_, err := f.client.DeleteStream(context.Background(), streamId, kurrentdb.DeleteStreamOptions{
+		StreamState: kurrentdb.StreamExists{},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (f *ClientFixture) TombstoneStream(streamId string) {
+	_, err := f.client.TombstoneStream(context.Background(), streamId, kurrentdb.TombstoneStreamOptions{
+		StreamState: kurrentdb.StreamExists{},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (f *ClientFixture) RequireMinServerVersion(t *testing.T, major, minor, patch int, reason string) {
+	t.Helper()
+	version, err := f.client.GetServerVersion()
+	if err != nil {
+		t.Fatalf("failed to get server version: %v", err)
+	}
+	if !version.IsAtLeast(major, minor, patch) {
+		t.Skip(reason)
+	}
+}
+
 func (f *ClientFixture) CollectEvents(stream *kurrentdb.ReadStream) ([]*kurrentdb.ResolvedEvent, error) {
 	var events []*kurrentdb.ResolvedEvent
 
