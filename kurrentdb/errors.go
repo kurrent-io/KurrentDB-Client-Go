@@ -51,6 +51,8 @@ const (
 	ErrorAborted
 	// ErrorUnavailable when the KurrentDB node became unavailable.
 	ErrorUnavailable
+	// ErrorCodeAppendConsistencyViolation when one or more consistency checks failed during an AppendRecords operation.
+	ErrorCodeAppendConsistencyViolation
 )
 
 // Error main client error type.
@@ -106,6 +108,8 @@ func (e *Error) Error() string {
 		msg = "[ErrorCodeNotLeader] the request needing a leader node was executed on a follower node"
 	case ErrorUnavailable:
 		msg = "[ErrorUnavailable] the server is not ready to accept requests"
+	case ErrorCodeAppendConsistencyViolation:
+		msg = "[ErrorCodeAppendConsistencyViolation] one or more consistency checks failed during append"
 
 	default:
 		msg = fmt.Sprintf("[ErrorCode %d] (sorry, this error code is not supported by the Error() method)", e.code)
@@ -185,6 +189,22 @@ func getDetail(err error) *Error {
 					MaxSize: detail.MaxSize,
 				},
 			}
+		case *streamErrors.AppendConsistencyViolationErrorDetails:
+			violations := make([]ConsistencyViolation, 0, len(detail.Violations))
+			for _, v := range detail.Violations {
+				if ss := v.GetStreamState(); ss != nil {
+					violations = append(violations, ConsistencyViolation{
+						CheckIndex:    v.CheckIndex,
+						Stream:        ss.Stream,
+						ExpectedState: convertInt64ToStreamState(ss.ExpectedState),
+						ActualState:   convertInt64ToStreamState(ss.ActualState),
+					})
+				}
+			}
+			return &Error{
+				code: ErrorCodeAppendConsistencyViolation,
+				err:  &AppendConsistencyViolationError{Violations: violations},
+			}
 		}
 	}
 
@@ -260,4 +280,21 @@ type AppendTransactionSizeExceededError struct {
 func (e *AppendTransactionSizeExceededError) Error() string {
 	exceededBy := e.Size - e.MaxSize
 	return fmt.Sprintf("[ErrorCodeAppendTransactionSizeExceeded] The total size of the append transaction (%d bytes) exceeds the maximum allowed size of %d bytes by %d bytes", e.Size, e.MaxSize, exceededBy)
+}
+
+// AppendConsistencyViolationError represents an error when one or more consistency checks failed during an AppendRecords operation.
+type AppendConsistencyViolationError struct {
+	Violations []ConsistencyViolation
+}
+
+func (e *AppendConsistencyViolationError) Error() string {
+	return fmt.Sprintf("[ErrorCodeAppendConsistencyViolation] %d consistency check(s) violated", len(e.Violations))
+}
+
+// ConsistencyViolation represents a single consistency check that was violated.
+type ConsistencyViolation struct {
+	CheckIndex    int32
+	Stream        string
+	ExpectedState StreamState
+	ActualState   StreamState
 }

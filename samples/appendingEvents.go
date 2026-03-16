@@ -259,3 +259,61 @@ func AppendToMultipleStreams(db *kurrentdb.Client) {
 		}
 	}
 }
+
+func AppendRecords(db *kurrentdb.Client) {
+	// region append-records
+	type OrderCreated struct {
+		OrderId string  `json:"orderId"`
+		Amount  float64 `json:"amount"`
+	}
+
+	type InventoryReserved struct {
+		OrderId string `json:"orderId"`
+		Sku     string `json:"sku"`
+	}
+
+	orderData, _ := json.Marshal(OrderCreated{OrderId: "12345", Amount: 99.99})
+	inventoryData, _ := json.Marshal(InventoryReserved{OrderId: "12345", Sku: "ITEM-001"})
+
+	// Records can be interleaved across streams
+	records := []kurrentdb.AppendRecord{
+		{
+			Stream: "order-123",
+			Record: kurrentdb.EventData{
+				EventID:     uuid.New(),
+				EventType:   "OrderCreated",
+				ContentType: kurrentdb.ContentTypeJson,
+				Data:        orderData,
+			},
+		},
+		{
+			Stream: "inventory-ITEM-001",
+			Record: kurrentdb.EventData{
+				EventID:     uuid.New(),
+				EventType:   "InventoryReserved",
+				ContentType: kurrentdb.ContentTypeJson,
+				Data:        inventoryData,
+			},
+		},
+	}
+
+	// Consistency checks are optional variadic arguments
+	result, err := db.AppendRecords(context.Background(), records,
+		kurrentdb.StreamStateCheck{
+			Stream:        "order-123",
+			ExpectedState: kurrentdb.NoStream{},
+		},
+	)
+	if err != nil {
+		var violationErr *kurrentdb.AppendConsistencyViolationError
+		if errors.As(err, &violationErr) {
+			for _, v := range violationErr.Violations {
+				log.Printf("Check %d violated on stream %s: expected %v but was %v",
+					v.CheckIndex, v.Stream, v.ExpectedState, v.ActualState)
+			}
+		}
+	}
+	// endregion append-records
+
+	log.Printf("Result: %v", result)
+}
