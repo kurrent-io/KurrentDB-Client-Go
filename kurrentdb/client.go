@@ -288,6 +288,133 @@ func (client *Client) MultiStreamAppend(
 	}, nil
 }
 
+// AppendRecords appends records to one or more streams atomically with cross-stream consistency checks.
+//
+// Records can be interleaved across streams in any order and the global log preserves
+// the exact sequence from the request. Consistency checks are decoupled from writes:
+// a check can reference any stream, whether or not the request writes to it.
+//
+// Parameters:
+//   - context: Context for cancellation and timeouts
+//   - records: Slice of AppendRecord (Stream, Record)
+//   - checks: Optional consistency checks evaluated before commit
+//
+// Returns:
+//   - *AppendRecordsResponse: Global position and per-stream responses
+//   - error: Wrapped in *Error with specific ErrorCode
+//
+// Errors:
+//   - ErrorCodeAppendConsistencyViolation: One or more consistency checks failed (*AppendConsistencyViolationError)
+//   - ErrorCodeAppendRecordSizeExceeded: Event too large (*AppendRecordSizeExceededError)
+//   - ErrorCodeAppendTransactionSizeExceeded: Total transaction too large (*AppendTransactionSizeExceededError)
+//   - ErrorCodeUnsupportedFeature: Server does not support AppendRecords
+func (client *Client) AppendRecords(
+	context context.Context,
+	records []AppendRecord,
+	checks ...ConsistencyCheck,
+) (*AppendRecordsResponse, error) {
+	if len(records) == 0 {
+		return nil, fmt.Errorf("at least one record is required")
+	}
+
+	for _, record := range records {
+		if len(record.Record.Metadata) > 0 {
+			var metadataMap map[string]string
+			if err := json.Unmarshal(record.Record.Metadata, &metadataMap); err != nil {
+				return nil, fmt.Errorf("event metadata must be a valid JSON map[string]string: %w", err)
+			}
+		}
+	}
+
+	handle, err := client.grpcClient.getConnectionHandle()
+	if err != nil {
+		return nil, err
+	}
+
+	if !handle.SupportsFeature(featureAppendRecords) {
+		return nil, unsupportedFeatureError()
+	}
+
+	var opts appendRecordsOptions
+	streamsClient := apiV2.NewStreamsServiceClient(handle.Connection())
+	var headers, trailers metadata.MD
+	callOptions := []grpc.CallOption{grpc.Header(&headers), grpc.Trailer(&trailers)}
+	callOptions, ctx, cancel := configureGrpcCall_(context, client.config, &opts, callOptions, client.grpcClient.perRPCCredentials, false)
+	defer cancel()
+
+	protoRecords := make([]*apiV2.AppendRecord, 0, len(records))
+	for _, record := range records {
+		properties := make(map[string]*structpb.Value)
+
+		contentType := apiV2.SchemaFormat_SCHEMA_FORMAT_BYTES
+		if record.Record.ContentType == ContentTypeJson {
+			contentType = apiV2.SchemaFormat_SCHEMA_FORMAT_JSON
+		}
+
+		metadataProperties, err := mapMetadataToValue(record.Record.Metadata)
+		if err != nil {
+			return nil, fmt.Errorf("could not map event metadata to dynamic values: %w", err)
+		}
+		for key, value := range metadataProperties {
+			properties[key] = value
+		}
+
+		recordId := record.Record.EventID.String()
+
+		protoRecords = append(protoRecords, &apiV2.AppendRecord{
+			RecordId:   &recordId,
+			Properties: properties,
+			Schema: &apiV2.SchemaInfo{
+				Format: contentType,
+				Name:   record.Record.EventType,
+			},
+			Data:   record.Record.Data,
+			Stream: record.Stream,
+		})
+	}
+
+	request := &apiV2.AppendRecordsRequest{
+		Records: protoRecords,
+	}
+
+	if len(checks) > 0 {
+		protoChecks := make([]*apiV2.ConsistencyCheck, 0, len(checks))
+		for _, check := range checks {
+			switch c := check.(type) {
+			case StreamStateCheck:
+				protoChecks = append(protoChecks, &apiV2.ConsistencyCheck{
+					Type: &apiV2.ConsistencyCheck_StreamState{
+						StreamState: &apiV2.ConsistencyCheck_StreamStateCheck{
+							Stream:        c.Stream,
+							ExpectedState: c.ExpectedState.toRawInt64(),
+						},
+					},
+				})
+			}
+		}
+		request.Checks = protoChecks
+	}
+
+	response, err := streamsClient.AppendRecords(ctx, request, callOptions...)
+	if err != nil {
+		err = client.grpcClient.handleError(handle, trailers, err)
+		return nil, err
+	}
+
+	responses := make([]AppendResponse, 0, len(response.GetRevisions()))
+	for _, revision := range response.GetRevisions() {
+		responses = append(responses, AppendResponse{
+			Stream:         revision.Stream,
+			StreamRevision: revision.Revision,
+		})
+	}
+
+	return &AppendRecordsResponse{
+		Position:  response.Position,
+		Responses: responses,
+	}, nil
+}
+
 // SetStreamMetadata Sets the metadata for a stream.
 func (client *Client) SetStreamMetadata(
 	context context.Context,

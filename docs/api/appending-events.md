@@ -12,7 +12,7 @@ Check the [Getting Started](getting-started.md) guide to learn how to configure 
 
 ## Append your first event
 
-The simplest way to append an event to KurrentDB is to create an `EventData` object and call `appendToStream` method.
+The simplest way to append an event to KurrentDB is to create an `EventData` object and call `AppendToStream` method.
 
 ```go{20-24}
 type OrderPlaced struct {
@@ -42,8 +42,8 @@ result, err := db.AppendToStream(context.Background(), "orders-123", options, ku
 ```
 
 `AppendToStream` takes a collection or a single object that can be serialized in JSON or binary format, which allows you to save more than one event in a single batch.
- 
-Outside the example above, other options exist for dealing with different scenarios. 
+
+Outside the example above, other options exist for dealing with different scenarios.
 
 ::: tip
 If you are new to Event Sourcing, please study the [Handling concurrency](#handling-concurrency) section below.
@@ -55,7 +55,7 @@ Events appended to KurrentDB must be wrapped in an `EventData` object. This allo
 
 ### EventID
 
-This takes the format of a `UUID` and is used to uniquely identify the event you are trying to append. If two events with the same `UUID` are appended to the same stream in quick succession, KurrentDB will only append one of the events to the stream. 
+This takes the format of a `UUID` and is used to uniquely identify the event you are trying to append. If two events with the same `UUID` are appended to the same stream in quick succession, KurrentDB will only append one of the events to the stream.
 
 For example, the following code will only append a single event:
 
@@ -76,7 +76,7 @@ if err != nil {
 
 ### EventType
 
-Each event should be supplied with an event type. This unique string is used to identify the type of event you are saving. 
+Each event should be supplied with an event type. This unique string is used to identify the type of event you are saving.
 
 It is common to see the explicit event code type name used as the type as it makes serialising and de-serialising of the event easy. However, we recommend against this as it couples the storage to the type and will make it more difficult if you need to version the event at a later date.
 
@@ -90,11 +90,11 @@ Storing additional information alongside your event that is part of the event it
 
 ### ContentType
 
-The content type indicates whether the event is stored as JSON or binary format. You can choose between `kurrentdb.ContentTypeJson` and `kurrentdb.ContentTypeBinary` when creating your `EventData` object. 
+The content type indicates whether the event is stored as JSON or binary format. You can choose between `kurrentdb.ContentTypeJson` and `kurrentdb.ContentTypeBinary` when creating your `EventData` object.
 
 ## Handling concurrency
 
-When appending events to a stream, you can supply a *stream state*. Your client uses this to inform KurrentDB of the state or version you expect the stream to be in when appending an event. If the stream isn't in that state, an exception will be thrown. 
+When appending events to a stream, you can supply a *stream state*. Your client uses this to inform KurrentDB of the state or version you expect the stream to be in when appending an event. If the stream isn't in that state, an exception will be thrown.
 
 For example, if you try to append the same record twice, expecting both times that the stream doesn't exist, you will get an exception on the second:
 
@@ -140,7 +140,7 @@ _, err = db.AppendToStream(context.Background(), "order-123", options, kurrentdb
 })
 ```
 
-There are several available expected revision options: 
+There are several available expected revision options:
 - `kurrentdb.Any` - No concurrency check
 - `kurrentdb.NoStream{}` - Stream should not exist
 - `kurrentdb.StreamExists{}` - Stream should exist
@@ -225,13 +225,16 @@ result, err := db.AppendToStream(
 )
 ```
 
-## Append to multiple streams
+## Atomic appends
 
-::: note
-This feature is only available in KurrentDB 25.1 and later.
-:::
+KurrentDB provides two operations for appending events to one or more streams in a single atomic transaction: `AppendRecords` and `MultiStreamAppend`. Both guarantee that either all writes succeed or the entire operation fails, but they differ in how records are organized, ordered, and validated.
 
-You can append events to multiple streams in a single atomic operation. Either all streams are updated, or the entire operation fails.
+|                        | `AppendRecords`                                                                                                 | `MultiStreamAppend`                                                                             |
+|------------------------|-----------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| **Available since**    | KurrentDB 26.1                                                                                                  | KurrentDB 25.1                                                                                  |
+| **Record ordering**    | Interleaved. Records from different streams can be mixed, and their exact order is preserved in the global log. | Grouped. All records for a stream are sent together; ordering across streams is not guaranteed. |
+| **Consistency checks** | Decoupled. Can validate the state of any stream, including streams not being written to.                        | Coupled. Expected state is specified per stream being written to.                               |
+| **Protocol**           | Unary RPC. All records and checks sent in a single request.                                                     | Client-streaming RPC. Records are streamed per stream.                                          |
 
 ::: warning
 Metadata must be a valid JSON object, using string keys and string values only.
@@ -240,25 +243,150 @@ KurrentDB's metadata handling. This restriction will be lifted in the next major
 release.
 :::
 
+### AppendRecords
+
+::: note
+This feature is only available in KurrentDB 26.1 and later.
+:::
+
+`AppendRecords` appends events to one or more streams atomically. Each record specifies which stream it targets, and the exact order of records is preserved in the global log across all streams.
+
+#### Single stream
+
+The simplest usage appends events to a single stream:
+
 ```go
-type OrderCreated struct {
-	OrderId string  `json:"orderId"`
-	Amount  float64 `json:"amount"`
-}
+orderData, _ := json.Marshal(map[string]interface{}{
+	"orderId": "123",
+})
 
-type PaymentProcessed struct {
-	PaymentId string  `json:"paymentId"`
-	Amount    float64 `json:"amount"`
-	Method    string  `json:"method"`
-}
+result, err := db.AppendRecords(context.Background(), []kurrentdb.AppendRecord{
+	{
+		Stream: "order-123",
+		Record: kurrentdb.EventData{
+			EventID:     uuid.New(),
+			EventType:   "OrderPlaced",
+			ContentType: kurrentdb.ContentTypeJson,
+			Data:        orderData,
+		},
+	},
+	{
+		Stream: "order-123",
+		Record: kurrentdb.EventData{
+			EventID:     uuid.New(),
+			EventType:   "OrderShipped",
+			ContentType: kurrentdb.ContentTypeJson,
+			Data:        orderData,
+		},
+	},
+})
+```
 
-metadata := map[string]string{
-	"source": "web-store",
-}
-metadataBytes, _ := json.Marshal(metadata)
+You can also pass a consistency check for optimistic concurrency:
 
+```go
+result, err := db.AppendRecords(context.Background(), []kurrentdb.AppendRecord{
+	{
+		Stream: "order-123",
+		Record: kurrentdb.EventData{
+			EventID:     uuid.New(),
+			EventType:   "OrderPlaced",
+			ContentType: kurrentdb.ContentTypeJson,
+			Data:        orderData,
+		},
+	},
+},
+	kurrentdb.StreamStateCheck{Stream: "order-123", ExpectedState: kurrentdb.NoStream{}},
+)
+```
+
+#### Multiple streams
+
+Use `AppendRecord` to target different streams. Records can be interleaved freely, and the global log preserves the exact order you specify:
+
+```go
+orderData, _ := json.Marshal(map[string]interface{}{"orderId": "123"})
+inventoryData, _ := json.Marshal(map[string]interface{}{"itemId": "abc", "quantity": 2})
+
+result, err := db.AppendRecords(context.Background(), []kurrentdb.AppendRecord{
+	{
+		Stream: "order-stream",
+		Record: kurrentdb.EventData{
+			EventID:     uuid.New(),
+			EventType:   "OrderCreated",
+			ContentType: kurrentdb.ContentTypeJson,
+			Data:        orderData,
+		},
+	},
+	{
+		Stream: "inventory-stream",
+		Record: kurrentdb.EventData{
+			EventID:     uuid.New(),
+			EventType:   "ItemReserved",
+			ContentType: kurrentdb.ContentTypeJson,
+			Data:        inventoryData,
+		},
+	},
+	{
+		Stream: "order-stream",
+		Record: kurrentdb.EventData{
+			EventID:     uuid.New(),
+			EventType:   "OrderConfirmed",
+			ContentType: kurrentdb.ContentTypeJson,
+			Data:        orderData,
+		},
+	},
+})
+```
+
+#### Consistency checks
+
+Consistency checks let you validate the state of any stream, including streams you are not writing to, before the append is committed. All checks are evaluated atomically: if any check fails, the entire operation is rejected and an `AppendConsistencyViolationError` is returned with details about every failing check and the actual state observed.
+
+```go
+result, err := db.AppendRecords(context.Background(), []kurrentdb.AppendRecord{
+	{
+		Stream: "order-stream",
+		Record: kurrentdb.EventData{
+			EventID:     uuid.New(),
+			EventType:   "OrderConfirmed",
+			ContentType: kurrentdb.ContentTypeJson,
+			Data:        orderData,
+		},
+	},
+},
+	// ensure the inventory stream exists before confirming the order,
+	// even though we are not writing to it
+	kurrentdb.StreamStateCheck{Stream: "inventory-stream", ExpectedState: kurrentdb.StreamExists{}},
+)
+
+if err != nil {
+	var violationErr *kurrentdb.AppendConsistencyViolationError
+	if errors.As(err, &violationErr) {
+		for _, v := range violationErr.Violations {
+			log.Printf("Check %d violated on stream %s: expected %v, actual %v",
+				v.CheckIndex, v.Stream, v.ExpectedState, v.ActualState)
+		}
+	}
+}
+```
+
+This decoupling of checks from writes enables [Dynamic Consistency Boundary](https://www.eventstore.com/blog/dynamic-consistency-boundary) patterns, where a business decision depends on the state of multiple streams but the resulting event is written to only one of them.
+
+### MultiStreamAppend
+
+::: note
+This feature is only available in KurrentDB 25.1 and later.
+:::
+
+`MultiStreamAppend` appends events to one or more streams atomically. Records are grouped per stream using `AppendStreamRequest`, where each request specifies a stream name, an expected state, and the events for that stream.
+
+```go
 orderData, _ := json.Marshal(OrderCreated{OrderId: "12345", Amount: 99.99})
 paymentData, _ := json.Marshal(PaymentProcessed{PaymentId: "PAY-789", Amount: 99.99, Method: "credit_card"})
+
+metadata := map[string]string{"source": "web-store"}
+metadataBytes, _ := json.Marshal(metadata)
 
 requests := []kurrentdb.AppendStreamRequest{
 	{
@@ -285,5 +413,9 @@ requests := []kurrentdb.AppendStreamRequest{
 	},
 }
 
-result, err := client.MultiStreamAppend(context.Background(), slices.Values(requests))
+result, err := db.MultiStreamAppend(context.Background(), slices.Values(requests))
 ```
+
+Each stream can only appear once in the request. The expected state is validated per stream before the transaction is committed.
+
+The result returns the position of the last appended record in the transaction and a collection of responses for each stream.

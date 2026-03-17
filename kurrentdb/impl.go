@@ -364,6 +364,7 @@ const (
 	featurePersistentSubscriptionGetInfo          = 16
 	featurePersistentSubscriptionToAll            = 32
 	featureMultiStreamAppend                      = 64
+	featureAppendRecords                          = 128
 	featurePersistentSubscriptionManagement       = featurePersistentSubscriptionList | featurePersistentSubscriptionGetInfo | featurePersistentSubscriptionRestartSubsystem | featurePersistentSubscriptionReplay
 )
 
@@ -445,6 +446,9 @@ func getSupportedMethods(ctx context.Context, conf *Configuration, conn *grpc.Cl
 		default:
 			if method.MethodName == "appendsession" {
 				info.featureFlags |= featureMultiStreamAppend
+			}
+			if method.MethodName == "appendrecords" {
+				info.featureFlags |= featureAppendRecords
 			}
 		}
 	}

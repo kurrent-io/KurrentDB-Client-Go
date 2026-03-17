@@ -712,7 +712,13 @@ const (
 	AppendStreamErrorCaseTransactionMaxSizeExceeded
 )
 
+// TODO: Deprecate MultiStreamAppendResponse in a future release in favor of AppendRecordsResponse.
 type MultiStreamAppendResponse struct {
+	Position  int64
+	Responses []AppendResponse
+}
+
+type AppendRecordsResponse struct {
 	Position  int64
 	Responses []AppendResponse
 }
