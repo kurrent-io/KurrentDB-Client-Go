@@ -107,11 +107,11 @@ func (sub *Subscription) Recv() *SubscriptionEvent {
 					if wire.StreamRevision != nil {
 						caughtUp.StreamRevision = new(uint64)
 						*caughtUp.StreamRevision = uint64(wire.GetStreamRevision())
-					} else {
+					} else if pos := wire.GetPosition(); pos != nil {
 						caughtUp.Position = new(Position)
 						*caughtUp.Position = Position{
-							Commit:  wire.GetPosition().CommitPosition,
-							Prepare: wire.GetPosition().PreparePosition,
+							Commit:  pos.CommitPosition,
+							Prepare: pos.PreparePosition,
 						}
 					}
 				}
