@@ -49,6 +49,11 @@ func (client *ProjectionClient) Create(
 	opts CreateProjectionOptions,
 ) error {
 	opts.setDefaults()
+
+	if opts.EngineVersion == ProjectionEngineVersionV2 && opts.TrackEmittedStreams {
+		return errors.New("trackEmittedStreams is not supported when engineVersion is V2")
+	}
+
 	handle, err := client.inner.grpcClient.getConnectionHandle()
 	if err != nil {
 		return err
@@ -62,7 +67,8 @@ func (client *ProjectionClient) Create(
 
 	_, err = projClient.Create(ctx, &projections.CreateReq{
 		Options: &projections.CreateReq_Options{
-			Query: query,
+			Query:         query,
+			EngineVersion: int32(opts.EngineVersion),
 			Mode: &projections.CreateReq_Options_Continuous_{
 				Continuous: &projections.CreateReq_Options_Continuous{
 					Name:                name,
