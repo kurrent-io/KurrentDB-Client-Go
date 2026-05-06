@@ -8,10 +8,8 @@ import "time"
 type ProjectionEngineVersion int32
 
 const (
-	// ProjectionEngineVersionUnspecified leaves the engine version unset on the
-	// wire. The server treats this the same as V1.
-	ProjectionEngineVersionUnspecified ProjectionEngineVersion = 0
-	// ProjectionEngineVersionV1 selects the original projection engine.
+	// ProjectionEngineVersionV1 selects the original projection engine. This is
+	// the default when EngineVersion is left unset.
 	ProjectionEngineVersionV1 ProjectionEngineVersion = 1
 	// ProjectionEngineVersionV2 selects the next-generation projection engine
 	// that processes partitions in parallel. V2 is opt-in and does not support
@@ -32,8 +30,8 @@ type CreateProjectionOptions struct {
 	TrackEmittedStreams bool
 	// If the projection should be able to write events.
 	Emit bool
-	// EngineVersion selects the projection engine version. Defaults to
-	// ProjectionEngineVersionUnspecified, which the server treats as V1.
+	// EngineVersion selects the projection engine version. Defaults to V1
+	// when unset.
 	EngineVersion ProjectionEngineVersion
 }
 
