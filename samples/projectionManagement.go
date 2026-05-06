@@ -174,6 +174,20 @@ fromAll()
 	// endregion CreateContinuous
 }
 
+func CreateV2Engine(client *kurrentdb.ProjectionClient) {
+	// region CreateContinuous_V2Engine
+	script := `fromAll().when({$init: function (state, ev) {return {};}});`
+	name := fmt.Sprintf("countEvent_CreateV2_%s", uuid.New())
+	err := client.Create(context.Background(), name, script, kurrentdb.CreateProjectionOptions{
+		EngineVersion: kurrentdb.ProjectionEngineVersionV2,
+	})
+
+	if err != nil {
+		panic(err)
+	}
+	// endregion CreateContinuous_V2Engine
+}
+
 func CreateConflict(client *kurrentdb.ProjectionClient) {
 	script := ""
 	name := ""

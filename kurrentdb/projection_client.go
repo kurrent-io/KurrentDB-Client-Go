@@ -3,7 +3,6 @@ package kurrentdb
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/projections"
 	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
 	"io"
@@ -52,7 +51,7 @@ func (client *ProjectionClient) Create(
 	opts.setDefaults()
 
 	if opts.EngineVersion == ProjectionEngineVersionV2 && opts.TrackEmittedStreams {
-		return fmt.Errorf("TrackEmittedStreams is not supported when EngineVersion is V2")
+		return errors.New("trackEmittedStreams is not supported when engineVersion is V2")
 	}
 
 	handle, err := client.inner.grpcClient.getConnectionHandle()
