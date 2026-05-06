@@ -2,6 +2,25 @@ package kurrentdb
 
 import "time"
 
+// ProjectionEngineVersion selects which projection engine the server should
+// use when creating a projection. The engine version is pinned at create time
+// and cannot be changed later.
+type ProjectionEngineVersion int32
+
+const (
+	// ProjectionEngineVersionUnspecified leaves the engine version unset on the
+	// wire. The server treats this the same as V1.
+	ProjectionEngineVersionUnspecified ProjectionEngineVersion = 0
+	// ProjectionEngineVersionV1 selects the original projection engine.
+	ProjectionEngineVersionV1 ProjectionEngineVersion = 1
+	// ProjectionEngineVersionV2 selects the next-generation projection engine
+	// that processes partitions in parallel. V2 is opt-in and does not support
+	// TrackEmittedStreams, bi-state projections, or live outputState result
+	// streams. See the KurrentDB documentation for the full list of limitations
+	// before choosing V2.
+	ProjectionEngineVersionV2 ProjectionEngineVersion = 2
+)
+
 type CreateProjectionOptions struct {
 	// Asks for authenticated request.
 	Authenticated *Credentials
@@ -13,6 +32,9 @@ type CreateProjectionOptions struct {
 	TrackEmittedStreams bool
 	// If the projection should be able to write events.
 	Emit bool
+	// EngineVersion selects the projection engine version. Defaults to
+	// ProjectionEngineVersionUnspecified, which the server treats as V1.
+	EngineVersion ProjectionEngineVersion
 }
 
 func (o *CreateProjectionOptions) kind() operationKind {

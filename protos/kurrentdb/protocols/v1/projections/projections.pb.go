@@ -776,6 +776,7 @@ type CreateReq_Options struct {
 	//	*CreateReq_Options_Continuous_
 	Mode          isCreateReq_Options_Mode `protobuf_oneof:"mode"`
 	Query         string                   `protobuf:"bytes,4,opt,name=query,proto3" json:"query,omitempty"`
+	EngineVersion int32                    `protobuf:"varint,5,opt,name=engine_version,json=engineVersion,proto3" json:"engine_version,omitempty"` // 0 or 1 = v1 (default), 2 = v2
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -849,6 +850,13 @@ func (x *CreateReq_Options) GetQuery() string {
 		return x.Query
 	}
 	return ""
+}
+
+func (x *CreateReq_Options) GetEngineVersion() int32 {
+	if x != nil {
+		return x.EngineVersion
+	}
+	return 0
 }
 
 type isCreateReq_Options_Mode interface {
@@ -1717,16 +1725,17 @@ var File_kurrentdb_protocols_v1_projections_proto protoreflect.FileDescriptor
 
 const file_kurrentdb_protocols_v1_projections_proto_rawDesc = "" +
 	"\n" +
-	"(kurrentdb/protocols/v1/projections.proto\x12\x1eevent_store.client.projections\x1a\x1cgoogle/protobuf/struct.proto\x1a#kurrentdb/protocols/v1/shared.proto\"\x91\x04\n" +
+	"(kurrentdb/protocols/v1/projections.proto\x12\x1eevent_store.client.projections\x1a\x1cgoogle/protobuf/struct.proto\x1a#kurrentdb/protocols/v1/shared.proto\"\xb8\x04\n" +
 	"\tCreateReq\x12K\n" +
-	"\aoptions\x18\x01 \x01(\v21.event_store.client.projections.CreateReq.OptionsR\aoptions\x1a\xb6\x03\n" +
+	"\aoptions\x18\x01 \x01(\v21.event_store.client.projections.CreateReq.OptionsR\aoptions\x1a\xdd\x03\n" +
 	"\aOptions\x126\n" +
 	"\bone_time\x18\x01 \x01(\v2\x19.event_store.client.EmptyH\x00R\aoneTime\x12[\n" +
 	"\ttransient\x18\x02 \x01(\v2;.event_store.client.projections.CreateReq.Options.TransientH\x00R\ttransient\x12^\n" +
 	"\n" +
 	"continuous\x18\x03 \x01(\v2<.event_store.client.projections.CreateReq.Options.ContinuousH\x00R\n" +
 	"continuous\x12\x14\n" +
-	"\x05query\x18\x04 \x01(\tR\x05query\x1a\x1f\n" +
+	"\x05query\x18\x04 \x01(\tR\x05query\x12%\n" +
+	"\x0eengine_version\x18\x05 \x01(\x05R\rengineVersion\x1a\x1f\n" +
 	"\tTransient\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x1aw\n" +
 	"\n" +

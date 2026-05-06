@@ -182,6 +182,31 @@ func (s *ProjectionSuite) TestGetStateProjection() {
 	fixture.WaitUntilProjectionStateReady(s.T(), 5*time.Minute, projName)
 }
 
+func (s *ProjectionSuite) TestCreateProjectionV2Engine() {
+	fixture := s.fixture
+	client := s.fixture.ProjectionClient()
+	name := fixture.NewProjectionName()
+
+	err := client.Create(context.Background(), name, "fromAll().when({$init: function (state, ev) {return {};}});", kurrentdb.CreateProjectionOptions{
+		EngineVersion: kurrentdb.ProjectionEngineVersionV2,
+	})
+	s.NoError(err)
+
+	fixture.WaitUntilProjectionStatusIs(s.T(), 5*time.Minute, name, "Running")
+}
+
+func (s *ProjectionSuite) TestCreateProjectionV2EngineRejectsTrackEmittedStreams() {
+	fixture := s.fixture
+	client := s.fixture.ProjectionClient()
+	name := fixture.NewProjectionName()
+
+	err := client.Create(context.Background(), name, "fromAll().when({$init: function (state, ev) {return {};}});", kurrentdb.CreateProjectionOptions{
+		EngineVersion:       kurrentdb.ProjectionEngineVersionV2,
+		TrackEmittedStreams: true,
+	})
+	s.Error(err)
+}
+
 func (s *ProjectionSuite) TestGetResultProjection() {
 	fixture := s.fixture
 	client := s.fixture.ProjectionClient()
