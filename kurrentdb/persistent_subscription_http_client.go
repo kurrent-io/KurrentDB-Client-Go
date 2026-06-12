@@ -174,20 +174,13 @@ func (client *Client) httpExecute(method string, path string, auth *Credentials,
 		}
 	}
 
-	var creds *Credentials
-	if auth != nil {
-		creds = auth
-	} else {
-		if client.config.Username != "" {
-			creds = &Credentials{
-				Login:    client.config.Username,
-				Password: client.config.Password,
-			}
-		}
+	creds, err := client.config.resolveRequestCredentials(req.Context(), auth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve credentials: %w", err)
 	}
 
-	if creds != nil {
-		req.SetBasicAuth(creds.Login, creds.Password)
+	if header := creds.authorizationHeader(); header != "" {
+		req.Header.Set("Authorization", header)
 	}
 
 	resp, err := http.DefaultClient.Do(req)

@@ -71,6 +71,24 @@ func ParseEndPoint(s string) (*EndPoint, error) {
 	return endpoint, nil
 }
 
+// clientPerRPCCredentials builds the client-level RPC credentials. A credentials
+// provider takes precedence over static username/password. Credentials are never
+// sent over an insecure channel.
+func clientPerRPCCredentials(config Configuration) credentials.PerRPCCredentials {
+	if config.DisableTLS {
+		return nil
+	}
+
+	switch {
+	case config.CredentialsProvider != nil:
+		return providerAuthPerRPCCredentials(config.CredentialsProvider)
+	case config.staticCredentials() != nil:
+		return staticAuthPerRPCCredentials(config.staticCredentials())
+	default:
+		return nil
+	}
+}
+
 func newGrpcClient(config Configuration) *grpcClient {
 	channel := make(chan msg)
 	closeFlag := new(int32)
@@ -82,17 +100,11 @@ func newGrpcClient(config Configuration) *grpcClient {
 
 	go connectionStateMachine(config, closeFlag, channel, &logger)
 
-	// Maybe construct RPC credentials from client config.
-	var perRPCCredentials credentials.PerRPCCredentials
-	if config.Username != "" && config.Password != "" && !config.DisableTLS {
-		perRPCCredentials = newBasicAuthPerRPCCredentials(config.Username, config.Password)
-	}
-
 	return &grpcClient{
 		channel:           channel,
 		closeFlag:         closeFlag,
 		once:              new(sync.Once),
 		logger:            &logger,
-		perRPCCredentials: perRPCCredentials,
+		perRPCCredentials: clientPerRPCCredentials(config),
 	}
 }

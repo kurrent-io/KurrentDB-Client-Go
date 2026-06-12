@@ -1,6 +1,7 @@
 package kurrentdb
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	url2 "net/url"
@@ -89,6 +90,42 @@ type Configuration struct {
 
 	// Logging abstraction used by the client.
 	Logger LoggingFunc
+
+	// CredentialsProvider, when set, supplies the credentials for each request,
+	// e.g. a refresh-aware OAuth/OIDC token source. See CredentialsProvider for
+	// the invocation contract. It takes precedence over Username/Password. Like
+	// Username/Password, it is not used when TLS is disabled, as credentials are
+	// never sent over an insecure channel.
+	CredentialsProvider CredentialsProvider
+}
+
+// staticCredentials returns the static username/password credentials configured
+// on the client, or nil when both are not set.
+func (conf *Configuration) staticCredentials() *Credentials {
+	if conf.Username != "" && conf.Password != "" {
+		return &Credentials{Login: conf.Username, Password: conf.Password}
+	}
+
+	return nil
+}
+
+// resolveRequestCredentials selects the credentials for a request by precedence:
+// per-call credentials, then the CredentialsProvider, then static
+// username/password. It returns nil credentials when none apply or when TLS is
+// disabled, as credentials are never sent over an insecure channel.
+func (conf *Configuration) resolveRequestCredentials(ctx context.Context, perCall *Credentials) (*Credentials, error) {
+	if conf.DisableTLS {
+		return nil, nil
+	}
+
+	switch {
+	case perCall != nil:
+		return perCall, nil
+	case conf.CredentialsProvider != nil:
+		return conf.CredentialsProvider(ctx)
+	default:
+		return conf.staticCredentials(), nil
+	}
 }
 
 func (conf *Configuration) applyLogger(level LogLevel, format string, args ...interface{}) {

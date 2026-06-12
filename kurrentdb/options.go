@@ -46,7 +46,7 @@ func configureGrpcCall_(ctx context.Context, conf *Configuration, options option
 
 	// Maybe use RPC credentials from client method options instead of RPC credentials from client config.
 	if options.credentials() != nil && !conf.DisableTLS {
-		perRPCCredentials = newBasicAuthPerRPCCredentials(options.credentials().Login, options.credentials().Password)
+		perRPCCredentials = staticAuthPerRPCCredentials(options.credentials())
 	}
 
 	// Maybe append RPC credentials to gRPC call options.

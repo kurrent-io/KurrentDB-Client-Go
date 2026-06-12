@@ -3,7 +3,6 @@ package kurrentdb
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -456,22 +455,53 @@ func getSupportedMethods(ctx context.Context, conf *Configuration, conn *grpc.Cl
 	return &info, nil
 }
 
-func newBasicAuthPerRPCCredentials(username, password string) *basicAuthPerRPCCredentials {
-	authorization := "Basic " + base64.StdEncoding.EncodeToString([]byte(username+":"+password))
-	headers := map[string]string{"Authorization": authorization}
-	return &basicAuthPerRPCCredentials{headers: headers}
+// authPerRPCCredentials attaches an "Authorization" header to every RPC. The
+// header is resolved per call so refresh-aware credential providers rotate
+// tokens transparently across reconnects.
+type authPerRPCCredentials struct {
+	resolve func(ctx context.Context) (string, error)
 }
 
-type basicAuthPerRPCCredentials struct {
-	headers map[string]string
+var _ credentials.PerRPCCredentials = authPerRPCCredentials{}
+
+func (c authPerRPCCredentials) GetRequestMetadata(ctx context.Context, _ ...string) (map[string]string, error) {
+	header, err := c.resolve(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if header == "" {
+		return nil, nil
+	}
+
+	return map[string]string{"Authorization": header}, nil
 }
 
-func (b *basicAuthPerRPCCredentials) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
-	return b.headers, nil
-}
-
-func (*basicAuthPerRPCCredentials) RequireTransportSecurity() bool {
+func (authPerRPCCredentials) RequireTransportSecurity() bool {
 	return true
+}
+
+// staticAuthPerRPCCredentials sends the same credentials on every RPC.
+func staticAuthPerRPCCredentials(creds *Credentials) authPerRPCCredentials {
+	header := creds.authorizationHeader()
+	return authPerRPCCredentials{resolve: func(context.Context) (string, error) {
+		return header, nil
+	}}
+}
+
+// providerAuthPerRPCCredentials resolves credentials from the provider on each
+// RPC, so refresh-aware token sources rotate transparently.
+func providerAuthPerRPCCredentials(provider CredentialsProvider) authPerRPCCredentials {
+	return authPerRPCCredentials{resolve: func(ctx context.Context) (string, error) {
+		creds, err := provider(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve credentials: %w", err)
+		}
+
+		// A provider returning nil credentials sends the request
+		// unauthenticated; authorizationHeader is nil-safe and returns "".
+		return creds.authorizationHeader(), nil
+	}}
 }
 
 func allowedNodeState() []gossipApi.MemberInfo_VNodeState {
