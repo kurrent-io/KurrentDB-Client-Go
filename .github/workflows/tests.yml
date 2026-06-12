@@ -78,8 +78,11 @@ jobs:
     timeout-minutes: 10
 
     runs-on: ubuntu-latest
-    # OAuth is a licensed feature; the steps are skipped (job stays green) when
-    # the license secret is unavailable, e.g. on pull requests from forks.
+    # OAuth e2e runs only on the `ci` runtime: that image ships the licensed
+    # OAuth plugin and the kurrentd entrypoint the stack expects (the lts /
+    # previous-lts images are EventStoreDB-branded with a different layout). The
+    # steps are also skipped when the license secret is unavailable, e.g. on
+    # pull requests from forks, so the job stays green.
     env:
       KURRENTDB_LICENSE_KEY: ${{ secrets.KURRENTDB_TEST_LICENSE_KEY }}
     steps:
@@ -89,7 +92,7 @@ jobs:
           go-version: ${{ inputs.go_version }}
 
       - name: Login to Cloudsmith
-        if: env.KURRENTDB_LICENSE_KEY != ''
+        if: inputs.runtime == 'ci' && env.KURRENTDB_LICENSE_KEY != ''
         uses: docker/login-action@v3
         with:
           registry: docker.kurrent.io
@@ -97,7 +100,7 @@ jobs:
           password: ${{ secrets.CLOUDSMITH_CICD_TOKEN }}
 
       - name: Start OAuth stack
-        if: env.KURRENTDB_LICENSE_KEY != ''
+        if: inputs.runtime == 'ci' && env.KURRENTDB_LICENSE_KEY != ''
         run: make start-oauth
         env:
           KURRENTDB_DOCKER_REGISTRY: ${{ needs.load_configuration.outputs.registry }}
@@ -105,5 +108,5 @@ jobs:
           KURRENTDB_DOCKER_TAG: ${{ needs.load_configuration.outputs.tag }}
 
       - name: Run OAuth tests
-        if: env.KURRENTDB_LICENSE_KEY != ''
+        if: inputs.runtime == 'ci' && env.KURRENTDB_LICENSE_KEY != ''
         run: go test --count=1 -v ./test -run TestOAuthAuthenticationSuite
