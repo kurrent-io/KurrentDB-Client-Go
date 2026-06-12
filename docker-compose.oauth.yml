@@ -1,0 +1,79 @@
+# OAuth integration-test stack: a Keycloak identity provider plus a single
+# KurrentDB node configured for OAuth authentication. Kept separate from the
+# main docker-compose.yml because OAuth is a licensed feature - the node needs
+# KURRENTDB_LICENSE_KEY to start, so it must not be part of the default
+# `make start-kurrentdb` flow. Bring it up with `make start-oauth`.
+name: tests-oauth
+
+services:
+  keycloak:
+    container_name: keycloak
+    image: quay.io/keycloak/keycloak:24.0
+    command: start --import-realm
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./oauth/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./certs:/certs
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTPS_CERTIFICATE_FILE: /certs/node1/node.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /certs/node1/node.key
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: "8443"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "false"
+      KC_HEALTH_ENABLED: "true"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8443"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+
+  single-oauth:
+    container_name: single-oauth
+    # The image must include the OAuth plugin (a licensed feature). The default
+    # is the public latest image, which carries it; CI overrides these vars to
+    # the registry/tag under test.
+    image: ${KURRENTDB_DOCKER_REGISTRY:-kurrentplatform}/${KURRENTDB_DOCKER_IMAGE:-kurrentdb}:${KURRENTDB_DOCKER_TAG:-latest}
+    # Root so the entrypoint can install the test CA into the OS trust store.
+    user: "0"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    # Lets the node reach the Keycloak issuer at https://localhost:8443 (the
+    # same host the token's issuer claim uses) via the published host port.
+    extra_hosts:
+      - "localhost:host-gateway"
+    environment:
+      EVENTSTORE_CERTIFICATE_FILE: "/etc/kurrentdb/certs/node1/node.crt"
+      EVENTSTORE_CERTIFICATE_PRIVATE_KEY_FILE: "/etc/kurrentdb/certs/node1/node.key"
+      EVENTSTORE_TRUSTED_ROOT_CERTIFICATES_PATH: "/etc/kurrentdb/certs/ca"
+      EVENTSTORE_ADVERTISE_HOST_TO_CLIENT_AS: "localhost"
+      EVENTSTORE_ADVERTISE_NODE_PORT_TO_CLIENT_AS: "2116"
+      EVENTSTORE_ALLOW_UNKNOWN_OPTIONS: "true"
+      EVENTSTORE_AUTHENTICATION_TYPE: "oauth"
+      EVENTSTORE_AUTHENTICATION_CONFIG: "/etc/kurrentdb/kurrentdb.conf"
+      EVENTSTORE_LICENSING__LICENSE_KEY: "${KURRENTDB_LICENSE_KEY:?OAuth tests require a KURRENTDB_LICENSE_KEY}"
+    # The OAuth plugin validates the issuer over HTTPS using the OS trust store
+    # (not the KurrentDB trusted-roots path), so install the test CA before
+    # starting the node.
+    entrypoint: >
+      sh -c '
+      cp /etc/kurrentdb/certs/ca/ca.crt /usr/local/share/ca-certificates/local-ca.crt;
+      update-ca-certificates;
+      exec /opt/kurrentdb/kurrentd;
+      '
+    ports:
+      - "2116:2113"
+    volumes:
+      - ./certs:/etc/kurrentdb/certs
+      - ./oauth/oauth.conf:/etc/kurrentdb/kurrentdb.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sSfk https://localhost:2113/health/live || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
