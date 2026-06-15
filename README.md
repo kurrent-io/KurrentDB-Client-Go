@@ -102,6 +102,29 @@ with:
 
 These variables combine to form the complete image reference used during testing.
 
+### Running the OAuth tests
+
+The OAuth authentication tests run against a separate stack (a Keycloak identity
+provider plus a KurrentDB node configured for OAuth) defined in
+`docker-compose.oauth.yml`. They are kept apart from the main suite because OAuth
+is a licensed feature: the node needs a license key, and the image must include
+the OAuth plugin. The `TestOAuthAuthenticationSuite` suite skips when the stack
+is not running, so it does not affect the default `make test` run.
+
+Set a license key, then start the stack and run the suite:
+
+```bash
+export KURRENTDB_LICENSE_KEY=<your-license-key>
+make start-oauth
+go test ./test -run TestOAuthAuthenticationSuite
+make stop-oauth
+```
+
+The `KURRENTDB_DOCKER_*` variables select the image as above; it must be one that
+ships the OAuth plugin. These tests are not part of the default CI matrix —
+enabling them there requires a license-key secret, a plugin-capable image, and a
+matrix entry that runs `make start-oauth` before the suite.
+
 ## More resources
 
 - [Release notes](https://kurrent.io/blog/release-notes)

@@ -47,6 +47,15 @@ start-kurrentdb:
 stop-kurrentdb:
 	@docker compose down -v --remove-orphans
 
+.PHONY: start-oauth
+start-oauth: ## Start the OAuth stack (Keycloak + an OAuth KurrentDB node). Requires KURRENTDB_LICENSE_KEY.
+	@docker compose -f docker-compose.oauth.yml up -d --wait
+	@docker compose -f docker-compose.oauth.yml ps
+
+.PHONY: stop-oauth
+stop-oauth:
+	@KURRENTDB_LICENSE_KEY=unset docker compose -f docker-compose.oauth.yml down -v --remove-orphans
+
 .PHONY: test
 test: ## Run tests
 	go test --count=1 -v ./test

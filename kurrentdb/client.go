@@ -919,7 +919,7 @@ func (client *Client) replayParkedMessages(ctx context.Context, streamName strin
 		return persistentSubscriptionClient.replayParkedMessages(ctx, client.config, handle, finalStreamName, groupName, &options)
 	}
 
-	return client.httpReplayParkedMessages(streamName, groupName, options)
+	return client.httpReplayParkedMessages(ctx, streamName, groupName, options)
 }
 
 // ListAllPersistentSubscriptions Lists all persistent subscriptions regardless of which stream they are on.
@@ -954,10 +954,10 @@ func (client *Client) listPersistentSubscriptionsInternal(ctx context.Context, s
 	}
 
 	if streamName != nil {
-		return client.httpListPersistentSubscriptionsForStream(*streamName, options)
+		return client.httpListPersistentSubscriptionsForStream(ctx, *streamName, options)
 	}
 
-	return client.httpListAllPersistentSubscriptions(options)
+	return client.httpListAllPersistentSubscriptions(ctx, options)
 }
 
 // GetPersistentSubscriptionInfo Gets the info for a specific persistent subscription to a stream
@@ -991,7 +991,7 @@ func (client *Client) getPersistentSubscriptionInfoInternal(ctx context.Context,
 		*streamName = "$all"
 	}
 
-	return client.httpGetPersistentSubscriptionInfo(*streamName, groupName, options)
+	return client.httpGetPersistentSubscriptionInfo(ctx, *streamName, groupName, options)
 }
 
 // RestartPersistentSubscriptionSubsystem Restarts the persistent subscription subsystem on the server.
@@ -1006,7 +1006,7 @@ func (client *Client) RestartPersistentSubscriptionSubsystem(ctx context.Context
 		return persistentClient.restartSubsystem(ctx, client.config, handle, &options)
 	}
 
-	return client.httpRestartSubsystem(options)
+	return client.httpRestartSubsystem(ctx, options)
 }
 
 func readInternal(

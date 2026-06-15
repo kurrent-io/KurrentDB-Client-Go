@@ -1,6 +1,7 @@
 package kurrentdb
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,8 +11,8 @@ import (
 	"strings"
 )
 
-func (client *Client) httpListAllPersistentSubscriptions(options ListPersistentSubscriptionsOptions) ([]PersistentSubscriptionInfo, error) {
-	body, err := client.httpExecute("GET", "/subscriptions", options.Authenticated, nil)
+func (client *Client) httpListAllPersistentSubscriptions(ctx context.Context, options ListPersistentSubscriptionsOptions) ([]PersistentSubscriptionInfo, error) {
+	body, err := client.httpExecute(ctx, "GET", "/subscriptions", options.Authenticated, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +38,8 @@ func (client *Client) httpListAllPersistentSubscriptions(options ListPersistentS
 	return infos, nil
 }
 
-func (client *Client) httpListPersistentSubscriptionsForStream(streamName string, options ListPersistentSubscriptionsOptions) ([]PersistentSubscriptionInfo, error) {
-	body, err := client.httpExecute("GET", fmt.Sprintf("/subscriptions/%s", url.PathEscape(streamName)), options.Authenticated, nil)
+func (client *Client) httpListPersistentSubscriptionsForStream(ctx context.Context, streamName string, options ListPersistentSubscriptionsOptions) ([]PersistentSubscriptionInfo, error) {
+	body, err := client.httpExecute(ctx, "GET", fmt.Sprintf("/subscriptions/%s", url.PathEscape(streamName)), options.Authenticated, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +65,8 @@ func (client *Client) httpListPersistentSubscriptionsForStream(streamName string
 	return infos, nil
 }
 
-func (client *Client) httpGetPersistentSubscriptionInfo(streamName string, groupName string, options GetPersistentSubscriptionOptions) (*PersistentSubscriptionInfo, error) {
-	body, err := client.httpExecute("GET", fmt.Sprintf("/subscriptions/%s/%s/info", url.PathEscape(streamName), url.PathEscape(groupName)), options.Authenticated, nil)
+func (client *Client) httpGetPersistentSubscriptionInfo(ctx context.Context, streamName string, groupName string, options GetPersistentSubscriptionOptions) (*PersistentSubscriptionInfo, error) {
+	body, err := client.httpExecute(ctx, "GET", fmt.Sprintf("/subscriptions/%s/%s/info", url.PathEscape(streamName), url.PathEscape(groupName)), options.Authenticated, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func (client *Client) httpGetPersistentSubscriptionInfo(streamName string, group
 	return info, nil
 }
 
-func (client *Client) httpReplayParkedMessages(streamName string, groupName string, options ReplayParkedMessagesOptions) error {
+func (client *Client) httpReplayParkedMessages(ctx context.Context, streamName string, groupName string, options ReplayParkedMessagesOptions) error {
 	params := &httpParams{
 		headers: []keyvalue{newKV("content-length", "0")},
 	}
@@ -95,17 +96,17 @@ func (client *Client) httpReplayParkedMessages(streamName string, groupName stri
 	}
 
 	urlStr := fmt.Sprintf("/subscriptions/%s/%s/replayParked", url.PathEscape(streamName), url.PathEscape(groupName))
-	_, err := client.httpExecute("POST", urlStr, options.Authenticated, params)
+	_, err := client.httpExecute(ctx, "POST", urlStr, options.Authenticated, params)
 
 	return err
 }
 
-func (client *Client) httpRestartSubsystem(options RestartPersistentSubscriptionSubsystemOptions) error {
+func (client *Client) httpRestartSubsystem(ctx context.Context, options RestartPersistentSubscriptionSubsystemOptions) error {
 	params := &httpParams{
 		headers: []keyvalue{newKV("content-length", "0")},
 	}
 
-	_, err := client.httpExecute("POST", "/subscriptions/restart", options.Authenticated, params)
+	_, err := client.httpExecute(ctx, "POST", "/subscriptions/restart", options.Authenticated, params)
 
 	return err
 }
@@ -143,13 +144,13 @@ type httpParams struct {
 	headers []keyvalue
 }
 
-func (client *Client) httpExecute(method string, path string, auth *Credentials, params *httpParams) ([]byte, error) {
+func (client *Client) httpExecute(ctx context.Context, method string, path string, auth *Credentials, params *httpParams) ([]byte, error) {
 	baseUrl, err := client.getBaseUrl()
 	if err != nil {
 		return nil, fmt.Errorf("can't get a connection handle: %w", err)
 	}
 
-	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", baseUrl, path), nil)
+	req, err := http.NewRequestWithContext(ctx, method, fmt.Sprintf("%s%s", baseUrl, path), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -174,20 +175,13 @@ func (client *Client) httpExecute(method string, path string, auth *Credentials,
 		}
 	}
 
-	var creds *Credentials
-	if auth != nil {
-		creds = auth
-	} else {
-		if client.config.Username != "" {
-			creds = &Credentials{
-				Login:    client.config.Username,
-				Password: client.config.Password,
-			}
-		}
+	creds, err := client.config.resolveRequestCredentials(ctx, auth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve credentials: %w", err)
 	}
 
-	if creds != nil {
-		req.SetBasicAuth(creds.Login, creds.Password)
+	if header := creds.authorizationHeader(); header != "" {
+		req.Header.Set("Authorization", header)
 	}
 
 	resp, err := http.DefaultClient.Do(req)

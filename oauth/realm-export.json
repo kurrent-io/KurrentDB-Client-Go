@@ -1,0 +1,104 @@
+{
+	"realm": "kurrent",
+	"enabled": true,
+	"accessTokenLifespan": 120,
+	"roles": {
+		"realm": [
+			{ "name": "$admins", "composite": false },
+			{ "name": "$ops", "composite": false }
+		]
+	},
+	"clientScopes": [
+		{
+			"name": "profile",
+			"protocol": "openid-connect",
+			"attributes": { "include.in.token.scope": "true" },
+			"protocolMappers": [
+				{
+					"name": "username",
+					"protocol": "openid-connect",
+					"protocolMapper": "oidc-usermodel-property-mapper",
+					"config": {
+						"user.attribute": "username",
+						"claim.name": "preferred_username",
+						"id.token.claim": "true",
+						"access.token.claim": "true",
+						"userinfo.token.claim": "true",
+						"jsonType.label": "String"
+					}
+				}
+			]
+		},
+		{
+			"name": "roles",
+			"description": "Adds realm roles to the access token",
+			"protocol": "openid-connect",
+			"attributes": { "include.in.token.scope": "true" },
+			"protocolMappers": [
+				{
+					"name": "roles",
+					"protocol": "openid-connect",
+					"protocolMapper": "oidc-usermodel-realm-role-mapper",
+					"config": {
+						"claim.name": "role",
+						"multivalued": "true",
+						"id.token.claim": "true",
+						"access.token.claim": "true",
+						"jsonType.label": "String",
+						"userinfo.token.claim": "true"
+					}
+				}
+			]
+		}
+	],
+	"clients": [
+		{
+			"clientId": "kurrentdb-client",
+			"enabled": true,
+			"publicClient": true,
+			"standardFlowEnabled": false,
+			"directAccessGrantsEnabled": true,
+			"defaultClientScopes": ["profile", "roles"],
+			"protocolMappers": [
+				{
+					"name": "audience",
+					"protocol": "openid-connect",
+					"protocolMapper": "oidc-audience-mapper",
+					"config": {
+						"included.client.audience": "kurrentdb-client",
+						"id.token.claim": "false",
+						"access.token.claim": "true"
+					}
+				}
+			]
+		}
+	],
+	"users": [
+		{
+			"username": "admin",
+			"enabled": true,
+			"emailVerified": true,
+			"email": "admin@example.com",
+			"firstName": "Admin",
+			"lastName": "User",
+			"requiredActions": [],
+			"credentials": [
+				{ "type": "password", "value": "changeit", "temporary": false }
+			],
+			"realmRoles": ["$admins"]
+		},
+		{
+			"username": "noroles",
+			"enabled": true,
+			"emailVerified": true,
+			"email": "noroles@example.com",
+			"firstName": "No",
+			"lastName": "Roles",
+			"requiredActions": [],
+			"credentials": [
+				{ "type": "password", "value": "changeit", "temporary": false }
+			],
+			"realmRoles": []
+		}
+	]
+}
