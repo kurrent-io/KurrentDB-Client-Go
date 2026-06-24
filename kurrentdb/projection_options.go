@@ -33,6 +33,14 @@ type CreateProjectionOptions struct {
 	// EngineVersion selects the projection engine version. Defaults to V1
 	// when unset.
 	EngineVersion ProjectionEngineVersion
+	// Metadata is caller-supplied metadata stamped onto the projection
+	// definition event. It does not affect the projection engine and is
+	// intended for deployment tooling to annotate projections (for example
+	// with a deployment identifier or the name of the managing tool). Values
+	// must be JSON-compatible: string, bool, number, nil, []byte, or nested
+	// []interface{} and map[string]interface{} of those. Ignored by servers
+	// that don't support it.
+	Metadata map[string]interface{}
 }
 
 func (o *CreateProjectionOptions) kind() operationKind {
@@ -63,6 +71,14 @@ type UpdateProjectionOptions struct {
 	RequiresLeader bool
 	// If the projection should be able to write events.
 	Emit *bool
+	// Metadata is caller-supplied metadata stamped onto the projection
+	// definition event. It does not affect the projection engine and is
+	// intended for deployment tooling to annotate projections (for example
+	// with a deployment identifier or the name of the managing tool). Values
+	// must be JSON-compatible: string, bool, number, nil, []byte, or nested
+	// []interface{} and map[string]interface{} of those. Ignored by servers
+	// that don't support it.
+	Metadata map[string]interface{}
 }
 
 func (o *UpdateProjectionOptions) kind() operationKind {

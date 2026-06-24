@@ -107,6 +107,106 @@ func (s *ProjectionSuite) TestUpdateProjection() {
 	s.Equal(int64(1), status.Version)
 }
 
+const projectionMetadataMinVersion = "projection caller metadata requires KurrentDB 26.2.0 or later"
+
+func (s *ProjectionSuite) TestCreateProjectionWithMetadata() {
+	fixture := s.fixture
+	fixture.RequireMinServerVersion(s.T(), 26, 2, 0, projectionMetadataMinVersion)
+	client := s.fixture.ProjectionClient()
+
+	script, err := os.ReadFile("../resources/test/projection.js")
+	s.NoError(err)
+	name := fixture.NewProjectionName()
+
+	err = client.Create(context.Background(), name, string(script), kurrentdb.CreateProjectionOptions{
+		Metadata: map[string]interface{}{
+			"deploy":  "abc123",
+			"tool":    "gaffer",
+			"version": 42,
+			"labels":  []interface{}{"a", "b"},
+		},
+	})
+	s.NoError(err)
+
+	fixture.WaitUntilProjectionStatusIs(s.T(), 5*time.Minute, name, "Running")
+
+	md := fixture.ProjectionDefinitionMetadata(s.T(), name)
+	s.Equal("abc123", md["deploy"])
+	s.Equal("gaffer", md["tool"])
+	s.Equal(float64(42), md["version"])
+	s.Equal([]interface{}{"a", "b"}, md["labels"])
+}
+
+func (s *ProjectionSuite) TestUpdateProjectionWithMetadata() {
+	fixture := s.fixture
+	fixture.RequireMinServerVersion(s.T(), 26, 2, 0, projectionMetadataMinVersion)
+	client := s.fixture.ProjectionClient()
+
+	script, err := os.ReadFile("../resources/test/projection.js")
+	s.NoError(err)
+	name := fixture.NewProjectionName()
+
+	err = client.Create(context.Background(), name, string(script), kurrentdb.CreateProjectionOptions{})
+	s.NoError(err)
+
+	fixture.WaitUntilProjectionStatusIs(s.T(), 5*time.Minute, name, "Running")
+
+	updatedScript, err := os.ReadFile("../resources/test/projection-updated.js")
+	s.NoError(err)
+
+	err = client.Update(context.Background(), name, string(updatedScript), kurrentdb.UpdateProjectionOptions{
+		Metadata: map[string]interface{}{
+			"deploy": "def456",
+		},
+	})
+	s.NoError(err)
+
+	md := fixture.ProjectionDefinitionMetadata(s.T(), name)
+	s.Equal("def456", md["deploy"])
+}
+
+// A plain update with no metadata must not wipe metadata stamped at create
+// time. This is the behaviour deployment tooling relies on: annotate once, and
+// later script-only updates leave the annotation intact.
+func (s *ProjectionSuite) TestUpdateWithoutMetadataKeepsExistingMetadata() {
+	fixture := s.fixture
+	fixture.RequireMinServerVersion(s.T(), 26, 2, 0, projectionMetadataMinVersion)
+	client := s.fixture.ProjectionClient()
+
+	script, err := os.ReadFile("../resources/test/projection.js")
+	s.NoError(err)
+	name := fixture.NewProjectionName()
+
+	err = client.Create(context.Background(), name, string(script), kurrentdb.CreateProjectionOptions{
+		Metadata: map[string]interface{}{"deploy": "abc123"},
+	})
+	s.NoError(err)
+
+	fixture.WaitUntilProjectionStatusIs(s.T(), 5*time.Minute, name, "Running")
+
+	updatedScript, err := os.ReadFile("../resources/test/projection-updated.js")
+	s.NoError(err)
+
+	err = client.Update(context.Background(), name, string(updatedScript), kurrentdb.UpdateProjectionOptions{})
+	s.NoError(err)
+
+	md := fixture.ProjectionDefinitionMetadata(s.T(), name)
+	s.Equal("abc123", md["deploy"])
+}
+
+func (s *ProjectionSuite) TestCreateProjectionRejectsInvalidMetadata() {
+	fixture := s.fixture
+	client := s.fixture.ProjectionClient()
+	name := fixture.NewProjectionName()
+
+	err := client.Create(context.Background(), name, "fromAll().when({});", kurrentdb.CreateProjectionOptions{
+		Metadata: map[string]interface{}{
+			"bad": make(chan int),
+		},
+	})
+	s.ErrorContains(err, "invalid projection metadata value for \"bad\"")
+}
+
 func (s *ProjectionSuite) TestEnableProjection() {
 	fixture := s.fixture
 	client := s.fixture.ProjectionClient()
