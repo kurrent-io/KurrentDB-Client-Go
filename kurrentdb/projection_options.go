@@ -37,7 +37,7 @@ type CreateProjectionOptions struct {
 	// definition event. It does not affect the projection engine and is
 	// intended for deployment tooling to annotate projections (for example
 	// with a deployment identifier or the name of the managing tool). Values
-	// must be JSON-compatible: string, bool, number, nil, []byte, or nested
+	// must be JSON-compatible: string, bool, number, nil, or nested
 	// []interface{} and map[string]interface{} of those. Ignored by servers
 	// that don't support it.
 	Metadata map[string]interface{}
@@ -75,7 +75,7 @@ type UpdateProjectionOptions struct {
 	// definition event. It does not affect the projection engine and is
 	// intended for deployment tooling to annotate projections (for example
 	// with a deployment identifier or the name of the managing tool). Values
-	// must be JSON-compatible: string, bool, number, nil, []byte, or nested
+	// must be JSON-compatible: string, bool, number, nil, or nested
 	// []interface{} and map[string]interface{} of those. Ignored by servers
 	// that don't support it.
 	Metadata map[string]interface{}
