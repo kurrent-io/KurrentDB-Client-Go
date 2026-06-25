@@ -3,6 +3,7 @@ package kurrentdb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/projections"
 	"github.com/kurrent-io/KurrentDB-Client-Go/protos/kurrentdb/protocols/v1/shared"
 	"io"
@@ -11,6 +12,23 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+func projectionMetadata(md map[string]interface{}) (map[string]*structpb.Value, error) {
+	if len(md) == 0 {
+		return nil, nil
+	}
+
+	out := make(map[string]*structpb.Value, len(md))
+	for key, value := range md {
+		v, err := structpb.NewValue(value)
+		if err != nil {
+			return nil, fmt.Errorf("invalid projection metadata value for %q: %w", key, err)
+		}
+		out[key] = v
+	}
+
+	return out, nil
+}
 
 type ProjectionClient struct {
 	inner *Client
@@ -54,6 +72,11 @@ func (client *ProjectionClient) Create(
 		return errors.New("trackEmittedStreams is not supported when engineVersion is V2")
 	}
 
+	metadataProps, err := projectionMetadata(opts.Metadata)
+	if err != nil {
+		return err
+	}
+
 	handle, err := client.inner.grpcClient.getConnectionHandle()
 	if err != nil {
 		return err
@@ -69,6 +92,7 @@ func (client *ProjectionClient) Create(
 		Options: &projections.CreateReq_Options{
 			Query:         query,
 			EngineVersion: int32(opts.EngineVersion),
+			Properties:    metadataProps,
 			Mode: &projections.CreateReq_Options_Continuous_{
 				Continuous: &projections.CreateReq_Options_Continuous{
 					Name:                name,
@@ -89,6 +113,12 @@ func (client *ProjectionClient) Update(
 	opts UpdateProjectionOptions,
 ) error {
 	opts.setDefaults()
+
+	metadataProps, err := projectionMetadata(opts.Metadata)
+	if err != nil {
+		return err
+	}
+
 	handle, err := client.inner.grpcClient.getConnectionHandle()
 	if err != nil {
 		return err
@@ -101,8 +131,9 @@ func (client *ProjectionClient) Update(
 	defer cancel()
 
 	options := &projections.UpdateReq_Options{
-		Name:  name,
-		Query: query,
+		Name:       name,
+		Query:      query,
+		Properties: metadataProps,
 	}
 
 	if opts.Emit == nil {

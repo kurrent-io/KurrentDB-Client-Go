@@ -188,6 +188,23 @@ func CreateV2Engine(client *kurrentdb.ProjectionClient) {
 	// endregion CreateContinuous_V2Engine
 }
 
+func CreateWithMetadata(client *kurrentdb.ProjectionClient) {
+	// region CreateContinuous_Metadata
+	script := `fromAll().when({$init: function (state, ev) {return {};}});`
+	name := fmt.Sprintf("countEvent_CreateMeta_%s", uuid.New())
+	err := client.Create(context.Background(), name, script, kurrentdb.CreateProjectionOptions{
+		Metadata: map[string]interface{}{
+			"deploy": "abc123",
+			"tool":   "gaffer",
+		},
+	})
+
+	if err != nil {
+		panic(err)
+	}
+	// endregion CreateContinuous_Metadata
+}
+
 func CreateConflict(client *kurrentdb.ProjectionClient) {
 	script := ""
 	name := ""

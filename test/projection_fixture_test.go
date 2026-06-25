@@ -3,12 +3,19 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/kurrent-io/KurrentDB-Client-Go/kurrentdb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
+
+const projectionsStreamPrefix = "$projections-"
+const projectionUpdatedEventType = "$ProjectionUpdated"
 
 type ProjectFixture struct {
 	*ClientFixture
@@ -118,6 +125,44 @@ func (f *ProjectFixture) WaitUntilProjectionResultReady(t *testing.T, duration t
 		return
 	case <-time.After(duration):
 		t.Errorf("unable to get projection '%s' internal state in a timely manner", name)
+	}
+}
+
+// ProjectionDefinitionMetadata reads the caller-supplied metadata stamped on
+// the most recent $ProjectionUpdated definition event for the named projection.
+// The server serializes it as a protobuf Struct on the event's metadata.
+func (f *ProjectFixture) ProjectionDefinitionMetadata(t *testing.T, name string) map[string]interface{} {
+	t.Helper()
+
+	stream, err := f.Client().ReadStream(context.Background(), projectionsStreamPrefix+name, kurrentdb.ReadStreamOptions{
+		Direction: kurrentdb.Backwards,
+		From:      kurrentdb.End{},
+	}, 100)
+	if err != nil {
+		t.Fatalf("error reading projection definition stream: %v", err)
+	}
+	defer stream.Close()
+
+	for {
+		event, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			t.Fatalf("error receiving projection definition event: %v", err)
+		}
+
+		recorded := event.OriginalEvent()
+		if recorded.EventType != projectionUpdatedEventType || len(recorded.UserMetadata) == 0 {
+			continue
+		}
+
+		var s structpb.Struct
+		if err := proto.Unmarshal(recorded.UserMetadata, &s); err != nil {
+			t.Fatalf("error unmarshalling projection properties: %v", err)
+		}
+
+		return s.AsMap()
 	}
 }
 

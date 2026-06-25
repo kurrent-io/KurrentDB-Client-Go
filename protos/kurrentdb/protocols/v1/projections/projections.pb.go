@@ -774,9 +774,10 @@ type CreateReq_Options struct {
 	//	*CreateReq_Options_OneTime
 	//	*CreateReq_Options_Transient_
 	//	*CreateReq_Options_Continuous_
-	Mode          isCreateReq_Options_Mode `protobuf_oneof:"mode"`
-	Query         string                   `protobuf:"bytes,4,opt,name=query,proto3" json:"query,omitempty"`
-	EngineVersion int32                    `protobuf:"varint,5,opt,name=engine_version,json=engineVersion,proto3" json:"engine_version,omitempty"` // 0 or 1 = v1 (default), 2 = v2
+	Mode          isCreateReq_Options_Mode   `protobuf_oneof:"mode"`
+	Query         string                     `protobuf:"bytes,4,opt,name=query,proto3" json:"query,omitempty"`
+	EngineVersion int32                      `protobuf:"varint,5,opt,name=engine_version,json=engineVersion,proto3" json:"engine_version,omitempty"` // 0 or 1 = v1 (default), 2 = v2
+	Properties    map[string]*structpb.Value `protobuf:"bytes,6,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -859,6 +860,13 @@ func (x *CreateReq_Options) GetEngineVersion() int32 {
 	return 0
 }
 
+func (x *CreateReq_Options) GetProperties() map[string]*structpb.Value {
+	if x != nil {
+		return x.Properties
+	}
+	return nil
+}
+
 type isCreateReq_Options_Mode interface {
 	isCreateReq_Options_Mode()
 }
@@ -890,7 +898,7 @@ type CreateReq_Options_Transient struct {
 
 func (x *CreateReq_Options_Transient) Reset() {
 	*x = CreateReq_Options_Transient{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[19]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -902,7 +910,7 @@ func (x *CreateReq_Options_Transient) String() string {
 func (*CreateReq_Options_Transient) ProtoMessage() {}
 
 func (x *CreateReq_Options_Transient) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[19]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -915,7 +923,7 @@ func (x *CreateReq_Options_Transient) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReq_Options_Transient.ProtoReflect.Descriptor instead.
 func (*CreateReq_Options_Transient) Descriptor() ([]byte, []int) {
-	return file_kurrentdb_protocols_v1_projections_proto_rawDescGZIP(), []int{0, 0, 0}
+	return file_kurrentdb_protocols_v1_projections_proto_rawDescGZIP(), []int{0, 0, 1}
 }
 
 func (x *CreateReq_Options_Transient) GetName() string {
@@ -936,7 +944,7 @@ type CreateReq_Options_Continuous struct {
 
 func (x *CreateReq_Options_Continuous) Reset() {
 	*x = CreateReq_Options_Continuous{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[20]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -948,7 +956,7 @@ func (x *CreateReq_Options_Continuous) String() string {
 func (*CreateReq_Options_Continuous) ProtoMessage() {}
 
 func (x *CreateReq_Options_Continuous) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[20]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -961,7 +969,7 @@ func (x *CreateReq_Options_Continuous) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReq_Options_Continuous.ProtoReflect.Descriptor instead.
 func (*CreateReq_Options_Continuous) Descriptor() ([]byte, []int) {
-	return file_kurrentdb_protocols_v1_projections_proto_rawDescGZIP(), []int{0, 0, 1}
+	return file_kurrentdb_protocols_v1_projections_proto_rawDescGZIP(), []int{0, 0, 2}
 }
 
 func (x *CreateReq_Options_Continuous) GetName() string {
@@ -994,13 +1002,14 @@ type UpdateReq_Options struct {
 	//	*UpdateReq_Options_EmitEnabled
 	//	*UpdateReq_Options_NoEmitOptions
 	EmitOption    isUpdateReq_Options_EmitOption `protobuf_oneof:"emit_option"`
+	Properties    map[string]*structpb.Value     `protobuf:"bytes,5,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateReq_Options) Reset() {
 	*x = UpdateReq_Options{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[21]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1012,7 +1021,7 @@ func (x *UpdateReq_Options) String() string {
 func (*UpdateReq_Options) ProtoMessage() {}
 
 func (x *UpdateReq_Options) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[21]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1067,6 +1076,13 @@ func (x *UpdateReq_Options) GetNoEmitOptions() *shared.Empty {
 	return nil
 }
 
+func (x *UpdateReq_Options) GetProperties() map[string]*structpb.Value {
+	if x != nil {
+		return x.Properties
+	}
+	return nil
+}
+
 type isUpdateReq_Options_EmitOption interface {
 	isUpdateReq_Options_EmitOption()
 }
@@ -1095,7 +1111,7 @@ type DeleteReq_Options struct {
 
 func (x *DeleteReq_Options) Reset() {
 	*x = DeleteReq_Options{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[22]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1107,7 +1123,7 @@ func (x *DeleteReq_Options) String() string {
 func (*DeleteReq_Options) ProtoMessage() {}
 
 func (x *DeleteReq_Options) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[22]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1167,7 +1183,7 @@ type StatisticsReq_Options struct {
 
 func (x *StatisticsReq_Options) Reset() {
 	*x = StatisticsReq_Options{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[23]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1179,7 +1195,7 @@ func (x *StatisticsReq_Options) String() string {
 func (*StatisticsReq_Options) ProtoMessage() {}
 
 func (x *StatisticsReq_Options) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[23]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1308,7 +1324,7 @@ type StatisticsResp_Details struct {
 
 func (x *StatisticsResp_Details) Reset() {
 	*x = StatisticsResp_Details{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[24]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1320,7 +1336,7 @@ func (x *StatisticsResp_Details) String() string {
 func (*StatisticsResp_Details) ProtoMessage() {}
 
 func (x *StatisticsResp_Details) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[24]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1479,7 +1495,7 @@ type StateReq_Options struct {
 
 func (x *StateReq_Options) Reset() {
 	*x = StateReq_Options{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[25]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1491,7 +1507,7 @@ func (x *StateReq_Options) String() string {
 func (*StateReq_Options) ProtoMessage() {}
 
 func (x *StateReq_Options) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[25]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1531,7 +1547,7 @@ type ResultReq_Options struct {
 
 func (x *ResultReq_Options) Reset() {
 	*x = ResultReq_Options{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[26]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1543,7 +1559,7 @@ func (x *ResultReq_Options) String() string {
 func (*ResultReq_Options) ProtoMessage() {}
 
 func (x *ResultReq_Options) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[26]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1583,7 +1599,7 @@ type ResetReq_Options struct {
 
 func (x *ResetReq_Options) Reset() {
 	*x = ResetReq_Options{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[27]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1595,7 +1611,7 @@ func (x *ResetReq_Options) String() string {
 func (*ResetReq_Options) ProtoMessage() {}
 
 func (x *ResetReq_Options) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[27]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1634,7 +1650,7 @@ type EnableReq_Options struct {
 
 func (x *EnableReq_Options) Reset() {
 	*x = EnableReq_Options{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[28]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1646,7 +1662,7 @@ func (x *EnableReq_Options) String() string {
 func (*EnableReq_Options) ProtoMessage() {}
 
 func (x *EnableReq_Options) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[28]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1679,7 +1695,7 @@ type DisableReq_Options struct {
 
 func (x *DisableReq_Options) Reset() {
 	*x = DisableReq_Options{}
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[29]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1691,7 +1707,7 @@ func (x *DisableReq_Options) String() string {
 func (*DisableReq_Options) ProtoMessage() {}
 
 func (x *DisableReq_Options) ProtoReflect() protoreflect.Message {
-	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[29]
+	mi := &file_kurrentdb_protocols_v1_projections_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1725,9 +1741,9 @@ var File_kurrentdb_protocols_v1_projections_proto protoreflect.FileDescriptor
 
 const file_kurrentdb_protocols_v1_projections_proto_rawDesc = "" +
 	"\n" +
-	"(kurrentdb/protocols/v1/projections.proto\x12\x1eevent_store.client.projections\x1a\x1cgoogle/protobuf/struct.proto\x1a#kurrentdb/protocols/v1/shared.proto\"\xb8\x04\n" +
+	"(kurrentdb/protocols/v1/projections.proto\x12\x1eevent_store.client.projections\x1a\x1cgoogle/protobuf/struct.proto\x1a#kurrentdb/protocols/v1/shared.proto\"\xf2\x05\n" +
 	"\tCreateReq\x12K\n" +
-	"\aoptions\x18\x01 \x01(\v21.event_store.client.projections.CreateReq.OptionsR\aoptions\x1a\xdd\x03\n" +
+	"\aoptions\x18\x01 \x01(\v21.event_store.client.projections.CreateReq.OptionsR\aoptions\x1a\x97\x05\n" +
 	"\aOptions\x126\n" +
 	"\bone_time\x18\x01 \x01(\v2\x19.event_store.client.EmptyH\x00R\aoneTime\x12[\n" +
 	"\ttransient\x18\x02 \x01(\v2;.event_store.client.projections.CreateReq.Options.TransientH\x00R\ttransient\x12^\n" +
@@ -1735,7 +1751,13 @@ const file_kurrentdb_protocols_v1_projections_proto_rawDesc = "" +
 	"continuous\x18\x03 \x01(\v2<.event_store.client.projections.CreateReq.Options.ContinuousH\x00R\n" +
 	"continuous\x12\x14\n" +
 	"\x05query\x18\x04 \x01(\tR\x05query\x12%\n" +
-	"\x0eengine_version\x18\x05 \x01(\x05R\rengineVersion\x1a\x1f\n" +
+	"\x0eengine_version\x18\x05 \x01(\x05R\rengineVersion\x12a\n" +
+	"\n" +
+	"properties\x18\x06 \x03(\v2A.event_store.client.projections.CreateReq.Options.PropertiesEntryR\n" +
+	"properties\x1aU\n" +
+	"\x0fPropertiesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\x1a\x1f\n" +
 	"\tTransient\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x1aw\n" +
 	"\n" +
@@ -1745,14 +1767,20 @@ const file_kurrentdb_protocols_v1_projections_proto_rawDesc = "" +
 	"\x15track_emitted_streams\x18\x03 \x01(\bR\x13trackEmittedStreamsB\x06\n" +
 	"\x04mode\"\f\n" +
 	"\n" +
-	"CreateResp\"\x87\x02\n" +
+	"CreateResp\"\xc1\x03\n" +
 	"\tUpdateReq\x12K\n" +
-	"\aoptions\x18\x01 \x01(\v21.event_store.client.projections.UpdateReq.OptionsR\aoptions\x1a\xac\x01\n" +
+	"\aoptions\x18\x01 \x01(\v21.event_store.client.projections.UpdateReq.OptionsR\aoptions\x1a\xe6\x02\n" +
 	"\aOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12#\n" +
 	"\femit_enabled\x18\x03 \x01(\bH\x00R\vemitEnabled\x12C\n" +
-	"\x0fno_emit_options\x18\x04 \x01(\v2\x19.event_store.client.EmptyH\x00R\rnoEmitOptionsB\r\n" +
+	"\x0fno_emit_options\x18\x04 \x01(\v2\x19.event_store.client.EmptyH\x00R\rnoEmitOptions\x12a\n" +
+	"\n" +
+	"properties\x18\x05 \x03(\v2A.event_store.client.projections.UpdateReq.Options.PropertiesEntryR\n" +
+	"properties\x1aU\n" +
+	"\x0fPropertiesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01B\r\n" +
 	"\vemit_option\"\f\n" +
 	"\n" +
 	"UpdateResp\"\x98\x02\n" +
@@ -1859,7 +1887,7 @@ func file_kurrentdb_protocols_v1_projections_proto_rawDescGZIP() []byte {
 	return file_kurrentdb_protocols_v1_projections_proto_rawDescData
 }
 
-var file_kurrentdb_protocols_v1_projections_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_kurrentdb_protocols_v1_projections_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_kurrentdb_protocols_v1_projections_proto_goTypes = []any{
 	(*CreateReq)(nil),                    // 0: event_store.client.projections.CreateReq
 	(*CreateResp)(nil),                   // 1: event_store.client.projections.CreateResp
@@ -1880,66 +1908,72 @@ var file_kurrentdb_protocols_v1_projections_proto_goTypes = []any{
 	(*DisableReq)(nil),                   // 16: event_store.client.projections.DisableReq
 	(*DisableResp)(nil),                  // 17: event_store.client.projections.DisableResp
 	(*CreateReq_Options)(nil),            // 18: event_store.client.projections.CreateReq.Options
-	(*CreateReq_Options_Transient)(nil),  // 19: event_store.client.projections.CreateReq.Options.Transient
-	(*CreateReq_Options_Continuous)(nil), // 20: event_store.client.projections.CreateReq.Options.Continuous
-	(*UpdateReq_Options)(nil),            // 21: event_store.client.projections.UpdateReq.Options
-	(*DeleteReq_Options)(nil),            // 22: event_store.client.projections.DeleteReq.Options
-	(*StatisticsReq_Options)(nil),        // 23: event_store.client.projections.StatisticsReq.Options
-	(*StatisticsResp_Details)(nil),       // 24: event_store.client.projections.StatisticsResp.Details
-	(*StateReq_Options)(nil),             // 25: event_store.client.projections.StateReq.Options
-	(*ResultReq_Options)(nil),            // 26: event_store.client.projections.ResultReq.Options
-	(*ResetReq_Options)(nil),             // 27: event_store.client.projections.ResetReq.Options
-	(*EnableReq_Options)(nil),            // 28: event_store.client.projections.EnableReq.Options
-	(*DisableReq_Options)(nil),           // 29: event_store.client.projections.DisableReq.Options
-	(*structpb.Value)(nil),               // 30: google.protobuf.Value
-	(*shared.Empty)(nil),                 // 31: event_store.client.Empty
+	nil,                                  // 19: event_store.client.projections.CreateReq.Options.PropertiesEntry
+	(*CreateReq_Options_Transient)(nil),  // 20: event_store.client.projections.CreateReq.Options.Transient
+	(*CreateReq_Options_Continuous)(nil), // 21: event_store.client.projections.CreateReq.Options.Continuous
+	(*UpdateReq_Options)(nil),            // 22: event_store.client.projections.UpdateReq.Options
+	nil,                                  // 23: event_store.client.projections.UpdateReq.Options.PropertiesEntry
+	(*DeleteReq_Options)(nil),            // 24: event_store.client.projections.DeleteReq.Options
+	(*StatisticsReq_Options)(nil),        // 25: event_store.client.projections.StatisticsReq.Options
+	(*StatisticsResp_Details)(nil),       // 26: event_store.client.projections.StatisticsResp.Details
+	(*StateReq_Options)(nil),             // 27: event_store.client.projections.StateReq.Options
+	(*ResultReq_Options)(nil),            // 28: event_store.client.projections.ResultReq.Options
+	(*ResetReq_Options)(nil),             // 29: event_store.client.projections.ResetReq.Options
+	(*EnableReq_Options)(nil),            // 30: event_store.client.projections.EnableReq.Options
+	(*DisableReq_Options)(nil),           // 31: event_store.client.projections.DisableReq.Options
+	(*structpb.Value)(nil),               // 32: google.protobuf.Value
+	(*shared.Empty)(nil),                 // 33: event_store.client.Empty
 }
 var file_kurrentdb_protocols_v1_projections_proto_depIdxs = []int32{
 	18, // 0: event_store.client.projections.CreateReq.options:type_name -> event_store.client.projections.CreateReq.Options
-	21, // 1: event_store.client.projections.UpdateReq.options:type_name -> event_store.client.projections.UpdateReq.Options
-	22, // 2: event_store.client.projections.DeleteReq.options:type_name -> event_store.client.projections.DeleteReq.Options
-	23, // 3: event_store.client.projections.StatisticsReq.options:type_name -> event_store.client.projections.StatisticsReq.Options
-	24, // 4: event_store.client.projections.StatisticsResp.details:type_name -> event_store.client.projections.StatisticsResp.Details
-	25, // 5: event_store.client.projections.StateReq.options:type_name -> event_store.client.projections.StateReq.Options
-	30, // 6: event_store.client.projections.StateResp.state:type_name -> google.protobuf.Value
-	26, // 7: event_store.client.projections.ResultReq.options:type_name -> event_store.client.projections.ResultReq.Options
-	30, // 8: event_store.client.projections.ResultResp.result:type_name -> google.protobuf.Value
-	27, // 9: event_store.client.projections.ResetReq.options:type_name -> event_store.client.projections.ResetReq.Options
-	28, // 10: event_store.client.projections.EnableReq.options:type_name -> event_store.client.projections.EnableReq.Options
-	29, // 11: event_store.client.projections.DisableReq.options:type_name -> event_store.client.projections.DisableReq.Options
-	31, // 12: event_store.client.projections.CreateReq.Options.one_time:type_name -> event_store.client.Empty
-	19, // 13: event_store.client.projections.CreateReq.Options.transient:type_name -> event_store.client.projections.CreateReq.Options.Transient
-	20, // 14: event_store.client.projections.CreateReq.Options.continuous:type_name -> event_store.client.projections.CreateReq.Options.Continuous
-	31, // 15: event_store.client.projections.UpdateReq.Options.no_emit_options:type_name -> event_store.client.Empty
-	31, // 16: event_store.client.projections.StatisticsReq.Options.all:type_name -> event_store.client.Empty
-	31, // 17: event_store.client.projections.StatisticsReq.Options.transient:type_name -> event_store.client.Empty
-	31, // 18: event_store.client.projections.StatisticsReq.Options.continuous:type_name -> event_store.client.Empty
-	31, // 19: event_store.client.projections.StatisticsReq.Options.one_time:type_name -> event_store.client.Empty
-	0,  // 20: event_store.client.projections.Projections.Create:input_type -> event_store.client.projections.CreateReq
-	2,  // 21: event_store.client.projections.Projections.Update:input_type -> event_store.client.projections.UpdateReq
-	4,  // 22: event_store.client.projections.Projections.Delete:input_type -> event_store.client.projections.DeleteReq
-	6,  // 23: event_store.client.projections.Projections.Statistics:input_type -> event_store.client.projections.StatisticsReq
-	16, // 24: event_store.client.projections.Projections.Disable:input_type -> event_store.client.projections.DisableReq
-	14, // 25: event_store.client.projections.Projections.Enable:input_type -> event_store.client.projections.EnableReq
-	12, // 26: event_store.client.projections.Projections.Reset:input_type -> event_store.client.projections.ResetReq
-	8,  // 27: event_store.client.projections.Projections.State:input_type -> event_store.client.projections.StateReq
-	10, // 28: event_store.client.projections.Projections.Result:input_type -> event_store.client.projections.ResultReq
-	31, // 29: event_store.client.projections.Projections.RestartSubsystem:input_type -> event_store.client.Empty
-	1,  // 30: event_store.client.projections.Projections.Create:output_type -> event_store.client.projections.CreateResp
-	3,  // 31: event_store.client.projections.Projections.Update:output_type -> event_store.client.projections.UpdateResp
-	5,  // 32: event_store.client.projections.Projections.Delete:output_type -> event_store.client.projections.DeleteResp
-	7,  // 33: event_store.client.projections.Projections.Statistics:output_type -> event_store.client.projections.StatisticsResp
-	17, // 34: event_store.client.projections.Projections.Disable:output_type -> event_store.client.projections.DisableResp
-	15, // 35: event_store.client.projections.Projections.Enable:output_type -> event_store.client.projections.EnableResp
-	13, // 36: event_store.client.projections.Projections.Reset:output_type -> event_store.client.projections.ResetResp
-	9,  // 37: event_store.client.projections.Projections.State:output_type -> event_store.client.projections.StateResp
-	11, // 38: event_store.client.projections.Projections.Result:output_type -> event_store.client.projections.ResultResp
-	31, // 39: event_store.client.projections.Projections.RestartSubsystem:output_type -> event_store.client.Empty
-	30, // [30:40] is the sub-list for method output_type
-	20, // [20:30] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	22, // 1: event_store.client.projections.UpdateReq.options:type_name -> event_store.client.projections.UpdateReq.Options
+	24, // 2: event_store.client.projections.DeleteReq.options:type_name -> event_store.client.projections.DeleteReq.Options
+	25, // 3: event_store.client.projections.StatisticsReq.options:type_name -> event_store.client.projections.StatisticsReq.Options
+	26, // 4: event_store.client.projections.StatisticsResp.details:type_name -> event_store.client.projections.StatisticsResp.Details
+	27, // 5: event_store.client.projections.StateReq.options:type_name -> event_store.client.projections.StateReq.Options
+	32, // 6: event_store.client.projections.StateResp.state:type_name -> google.protobuf.Value
+	28, // 7: event_store.client.projections.ResultReq.options:type_name -> event_store.client.projections.ResultReq.Options
+	32, // 8: event_store.client.projections.ResultResp.result:type_name -> google.protobuf.Value
+	29, // 9: event_store.client.projections.ResetReq.options:type_name -> event_store.client.projections.ResetReq.Options
+	30, // 10: event_store.client.projections.EnableReq.options:type_name -> event_store.client.projections.EnableReq.Options
+	31, // 11: event_store.client.projections.DisableReq.options:type_name -> event_store.client.projections.DisableReq.Options
+	33, // 12: event_store.client.projections.CreateReq.Options.one_time:type_name -> event_store.client.Empty
+	20, // 13: event_store.client.projections.CreateReq.Options.transient:type_name -> event_store.client.projections.CreateReq.Options.Transient
+	21, // 14: event_store.client.projections.CreateReq.Options.continuous:type_name -> event_store.client.projections.CreateReq.Options.Continuous
+	19, // 15: event_store.client.projections.CreateReq.Options.properties:type_name -> event_store.client.projections.CreateReq.Options.PropertiesEntry
+	32, // 16: event_store.client.projections.CreateReq.Options.PropertiesEntry.value:type_name -> google.protobuf.Value
+	33, // 17: event_store.client.projections.UpdateReq.Options.no_emit_options:type_name -> event_store.client.Empty
+	23, // 18: event_store.client.projections.UpdateReq.Options.properties:type_name -> event_store.client.projections.UpdateReq.Options.PropertiesEntry
+	32, // 19: event_store.client.projections.UpdateReq.Options.PropertiesEntry.value:type_name -> google.protobuf.Value
+	33, // 20: event_store.client.projections.StatisticsReq.Options.all:type_name -> event_store.client.Empty
+	33, // 21: event_store.client.projections.StatisticsReq.Options.transient:type_name -> event_store.client.Empty
+	33, // 22: event_store.client.projections.StatisticsReq.Options.continuous:type_name -> event_store.client.Empty
+	33, // 23: event_store.client.projections.StatisticsReq.Options.one_time:type_name -> event_store.client.Empty
+	0,  // 24: event_store.client.projections.Projections.Create:input_type -> event_store.client.projections.CreateReq
+	2,  // 25: event_store.client.projections.Projections.Update:input_type -> event_store.client.projections.UpdateReq
+	4,  // 26: event_store.client.projections.Projections.Delete:input_type -> event_store.client.projections.DeleteReq
+	6,  // 27: event_store.client.projections.Projections.Statistics:input_type -> event_store.client.projections.StatisticsReq
+	16, // 28: event_store.client.projections.Projections.Disable:input_type -> event_store.client.projections.DisableReq
+	14, // 29: event_store.client.projections.Projections.Enable:input_type -> event_store.client.projections.EnableReq
+	12, // 30: event_store.client.projections.Projections.Reset:input_type -> event_store.client.projections.ResetReq
+	8,  // 31: event_store.client.projections.Projections.State:input_type -> event_store.client.projections.StateReq
+	10, // 32: event_store.client.projections.Projections.Result:input_type -> event_store.client.projections.ResultReq
+	33, // 33: event_store.client.projections.Projections.RestartSubsystem:input_type -> event_store.client.Empty
+	1,  // 34: event_store.client.projections.Projections.Create:output_type -> event_store.client.projections.CreateResp
+	3,  // 35: event_store.client.projections.Projections.Update:output_type -> event_store.client.projections.UpdateResp
+	5,  // 36: event_store.client.projections.Projections.Delete:output_type -> event_store.client.projections.DeleteResp
+	7,  // 37: event_store.client.projections.Projections.Statistics:output_type -> event_store.client.projections.StatisticsResp
+	17, // 38: event_store.client.projections.Projections.Disable:output_type -> event_store.client.projections.DisableResp
+	15, // 39: event_store.client.projections.Projections.Enable:output_type -> event_store.client.projections.EnableResp
+	13, // 40: event_store.client.projections.Projections.Reset:output_type -> event_store.client.projections.ResetResp
+	9,  // 41: event_store.client.projections.Projections.State:output_type -> event_store.client.projections.StateResp
+	11, // 42: event_store.client.projections.Projections.Result:output_type -> event_store.client.projections.ResultResp
+	33, // 43: event_store.client.projections.Projections.RestartSubsystem:output_type -> event_store.client.Empty
+	34, // [34:44] is the sub-list for method output_type
+	24, // [24:34] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_kurrentdb_protocols_v1_projections_proto_init() }
@@ -1952,11 +1986,11 @@ func file_kurrentdb_protocols_v1_projections_proto_init() {
 		(*CreateReq_Options_Transient_)(nil),
 		(*CreateReq_Options_Continuous_)(nil),
 	}
-	file_kurrentdb_protocols_v1_projections_proto_msgTypes[21].OneofWrappers = []any{
+	file_kurrentdb_protocols_v1_projections_proto_msgTypes[22].OneofWrappers = []any{
 		(*UpdateReq_Options_EmitEnabled)(nil),
 		(*UpdateReq_Options_NoEmitOptions)(nil),
 	}
-	file_kurrentdb_protocols_v1_projections_proto_msgTypes[23].OneofWrappers = []any{
+	file_kurrentdb_protocols_v1_projections_proto_msgTypes[25].OneofWrappers = []any{
 		(*StatisticsReq_Options_Name)(nil),
 		(*StatisticsReq_Options_All)(nil),
 		(*StatisticsReq_Options_Transient)(nil),
@@ -1969,7 +2003,7 @@ func file_kurrentdb_protocols_v1_projections_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kurrentdb_protocols_v1_projections_proto_rawDesc), len(file_kurrentdb_protocols_v1_projections_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   30,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
