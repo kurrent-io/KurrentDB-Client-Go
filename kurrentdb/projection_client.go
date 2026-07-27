@@ -423,6 +423,10 @@ func (client *ProjectionClient) GetStatus(
 		return nil, err
 	}
 
+	if len(projs) == 0 {
+		return nil, &Error{code: ErrorCodeResourceNotFound, err: fmt.Errorf("projection '%s' is not found", name)}
+	}
+
 	return &projs[0], nil
 }
 
@@ -462,6 +466,9 @@ func (client *ProjectionClient) listInternal(
 	stream, err := projClient.Statistics(ctx, &projections.StatisticsReq{
 		Options: &options,
 	}, callOptions...)
+	if err != nil {
+		return nil, client.inner.grpcClient.handleError(handle, trailers, err)
+	}
 
 	var projs []ProjectionStatus
 
@@ -477,26 +484,31 @@ func (client *ProjectionClient) listInternal(
 			return projs, nil
 		}
 
+		details := item.GetDetails()
+		if details == nil {
+			continue
+		}
+
 		proj := ProjectionStatus{
-			CoreProcessingTime:                 item.Details.CoreProcessingTime,
-			Version:                            item.Details.Version,
-			Epoch:                              item.Details.Epoch,
-			EffectiveName:                      item.Details.EffectiveName,
-			WritesInProgress:                   item.Details.WritesInProgress,
-			ReadsInProgress:                    item.Details.ReadsInProgress,
-			PartitionsCached:                   item.Details.PartitionsCached,
-			Status:                             item.Details.Status,
-			StateReason:                        item.Details.StateReason,
-			Name:                               item.Details.Name,
-			Mode:                               item.Details.Mode,
-			Position:                           item.Details.Position,
-			Progress:                           item.Details.Progress,
-			LastCheckpoint:                     item.Details.LastCheckpoint,
-			EventsProcessedAfterRestart:        item.Details.EventsProcessedAfterRestart,
-			CheckpointStatus:                   item.Details.CheckpointStatus,
-			BufferedEvents:                     item.Details.BufferedEvents,
-			WritePendingEventsBeforeCheckpoint: item.Details.WritePendingEventsBeforeCheckpoint,
-			WritePendingEventsAfterCheckpoint:  item.Details.WritePendingEventsAfterCheckpoint,
+			CoreProcessingTime:                 details.CoreProcessingTime,
+			Version:                            details.Version,
+			Epoch:                              details.Epoch,
+			EffectiveName:                      details.EffectiveName,
+			WritesInProgress:                   details.WritesInProgress,
+			ReadsInProgress:                    details.ReadsInProgress,
+			PartitionsCached:                   details.PartitionsCached,
+			Status:                             details.Status,
+			StateReason:                        details.StateReason,
+			Name:                               details.Name,
+			Mode:                               details.Mode,
+			Position:                           details.Position,
+			Progress:                           details.Progress,
+			LastCheckpoint:                     details.LastCheckpoint,
+			EventsProcessedAfterRestart:        details.EventsProcessedAfterRestart,
+			CheckpointStatus:                   details.CheckpointStatus,
+			BufferedEvents:                     details.BufferedEvents,
+			WritePendingEventsBeforeCheckpoint: details.WritePendingEventsBeforeCheckpoint,
+			WritePendingEventsAfterCheckpoint:  details.WritePendingEventsAfterCheckpoint,
 		}
 
 		projs = append(projs, proj)
