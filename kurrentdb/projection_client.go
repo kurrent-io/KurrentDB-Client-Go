@@ -486,7 +486,7 @@ func (client *ProjectionClient) listInternal(
 
 		details := item.GetDetails()
 		if details == nil {
-			continue
+			return nil, &Error{code: ErrorCodeInternalServer, err: fmt.Errorf("statistics response is missing details")}
 		}
 
 		proj := ProjectionStatus{
