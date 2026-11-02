@@ -77,7 +77,7 @@ func (client *ProjectionClient) Create(
 		return err
 	}
 
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (client *ProjectionClient) Update(
 		return err
 	}
 
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (client *ProjectionClient) Delete(
 	opts DeleteProjectionOptions,
 ) error {
 	opts.setDefaults()
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,7 @@ func (client *ProjectionClient) Enable(
 	opts GenericProjectionOptions,
 ) error {
 	opts.setDefaults()
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func (client *ProjectionClient) disable(
 	opts GenericProjectionOptions,
 ) error {
 	opts.setDefaults()
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func (client *ProjectionClient) Reset(
 	opts ResetProjectionOptions,
 ) error {
 	opts.setDefaults()
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return err
 	}
@@ -283,7 +283,7 @@ func (client *ProjectionClient) GetResult(
 	opts GetResultProjectionOptions,
 ) (*structpb.Value, error) {
 	opts.setDefaults()
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +314,7 @@ func (client *ProjectionClient) GetState(
 	opts GetStateProjectionOptions,
 ) (*structpb.Value, error) {
 	opts.setDefaults()
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +344,7 @@ func (client *ProjectionClient) RestartSubsystem(
 	opts GenericProjectionOptions,
 ) error {
 	opts.setDefaults()
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return err
 	}
@@ -450,7 +450,7 @@ func (client *ProjectionClient) listInternal(
 	opts GenericProjectionOptions,
 ) ([]ProjectionStatus, error) {
 	opts.setDefaults()
-	handle, err := client.inner.grpcClient.getConnectionHandle()
+	handle, err := client.inner.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return nil, err
 	}

@@ -111,8 +111,8 @@ func (client *Client) httpRestartSubsystem(ctx context.Context, options RestartP
 	return err
 }
 
-func (client *Client) getBaseUrl() (string, error) {
-	handle, err := client.grpcClient.getConnectionHandle()
+func (client *Client) getBaseUrl(ctx context.Context) (string, error) {
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -145,7 +145,7 @@ type httpParams struct {
 }
 
 func (client *Client) httpExecute(ctx context.Context, method string, path string, auth *Credentials, params *httpParams) ([]byte, error) {
-	baseUrl, err := client.getBaseUrl()
+	baseUrl, err := client.getBaseUrl(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("can't get a connection handle: %w", err)
 	}

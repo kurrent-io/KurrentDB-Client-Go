@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"google.golang.org/grpc/credentials"
 )
@@ -90,21 +89,15 @@ func clientPerRPCCredentials(config Configuration) credentials.PerRPCCredentials
 }
 
 func newGrpcClient(config Configuration) *grpcClient {
-	channel := make(chan msg)
-	closeFlag := new(int32)
-	logger := logger{
-		callback: config.Logger,
-	}
-
-	atomic.StoreInt32(closeFlag, 0)
-
-	go connectionStateMachine(config, closeFlag, channel, &logger)
-
-	return &grpcClient{
-		channel:           channel,
-		closeFlag:         closeFlag,
+	client := &grpcClient{
+		channel:           make(chan msg),
+		done:              make(chan struct{}),
 		once:              new(sync.Once),
-		logger:            &logger,
+		logger:            &logger{callback: config.Logger},
 		perRPCCredentials: clientPerRPCCredentials(config),
 	}
+
+	go connectionStateMachine(config, client)
+
+	return client
 }
