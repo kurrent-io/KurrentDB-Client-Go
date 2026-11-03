@@ -50,3 +50,32 @@ func TestDiscoveryFailureReleasesConcurrentCallers(t *testing.T) {
 		require.NoError(t, client.Close())
 	}
 }
+
+func TestCloseReleasesCallerDuringDiscovery(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	config, err := ParseConnectionString("kurrentdb://" + listener.Addr().String() + "?tls=false&maxDiscoverAttempts=10&gossipTimeout=5")
+	require.NoError(t, err)
+
+	client, err := NewClient(config)
+	require.NoError(t, err)
+
+	errs := make(chan error, 1)
+	go func() {
+		_, err := client.ReadStream(context.Background(), "repro", ReadStreamOptions{}, 1)
+		errs <- err
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	require.NoError(t, client.Close())
+
+	select {
+	case err := <-errs:
+		kurrentErr, _ := FromError(err)
+		require.Equal(t, ErrorCodeConnectionClosed, kurrentErr.Code())
+	case <-time.After(time.Second):
+		t.Fatal("caller still blocked after Close")
+	}
+}

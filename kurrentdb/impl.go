@@ -132,6 +132,8 @@ func (client *grpcClient) getConnectionHandle(ctx context.Context) (*connectionH
 	select {
 	case resp := <-msg.channel:
 		return &resp, resp.err
+	case <-client.done:
+		return nil, client.closedError()
 	case <-ctx.Done():
 		return nil, contextError(ctx)
 	}
