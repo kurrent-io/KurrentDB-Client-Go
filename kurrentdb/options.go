@@ -55,8 +55,8 @@ func configureGrpcCall_(ctx context.Context, conf *Configuration, options option
 	}
 
 	if forceForwardRequiresLeader && (options.requiresLeader() || conf.NodePreference == NodePreferenceLeader) {
-		md := metadata.New(map[string]string{"requires-leader": "true"})
-		newCtx = metadata.NewIncomingContext(newCtx, md)
+		// gRPC only sends outgoing metadata, so the header has to go there.
+		newCtx = metadata.AppendToOutgoingContext(newCtx, "requires-leader", "true")
 	}
 
 	return grpcOptions, newCtx, cancel
