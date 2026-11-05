@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,18 +26,35 @@ import (
 
 type grpcClient struct {
 	channel           chan msg
-	closeFlag         *int32
+	done              chan struct{}
+	closeErr          error
 	once              *sync.Once
 	logger            *logger
 	perRPCCredentials credentials.PerRPCCredentials
 }
 
+func (client *grpcClient) closedError() error {
+	err := client.closeErr
+	if err == nil {
+		err = fmt.Errorf("connection is closed")
+	}
+
+	return &Error{
+		code: ErrorCodeConnectionClosed,
+		err:  err,
+	}
+}
+
+func contextError(ctx context.Context) error {
+	return &Error{
+		code: errToCode(status.FromContextError(ctx.Err()).Err()),
+		err:  ctx.Err(),
+	}
+}
+
 func (client *grpcClient) handleError(handle *connectionHandle, trailers metadata.MD, err error) error {
 	if client.isClosed() {
-		return &Error{
-			code: ErrorCodeConnectionClosed,
-			err:  fmt.Errorf("connection is closed"),
-		}
+		return client.closedError()
 	}
 
 	if richErr := getDetail(err); richErr != nil {
@@ -66,16 +82,12 @@ func (client *grpcClient) handleError(handle *connectionHandle, trailers metadat
 					endpoint:    &endpoint,
 				}
 
-				if !client.isClosed() {
-					client.channel <- msg
-					client.logger.error("not leader exception, reconnecting to %v", endpoint)
-					return &Error{code: ErrorCodeNotLeader}
+				if err := client.send(context.Background(), msg); err != nil {
+					return err
 				}
 
-				return &Error{
-					code: ErrorCodeConnectionClosed,
-					err:  fmt.Errorf("connection is closed"),
-				}
+				client.logger.error("not leader exception, reconnecting to %v", endpoint)
+				return &Error{code: ErrorCodeNotLeader}
 			}
 		}
 	}
@@ -88,40 +100,64 @@ func (client *grpcClient) handleError(handle *connectionHandle, trailers metadat
 	client.logger.error("unexpected exception: %v", err)
 
 	code := errToCode(err)
-	if code == ErrorUnavailable && !client.isClosed() {
-		client.channel <- reconnect{
+	if code == ErrorUnavailable {
+		_ = client.send(context.Background(), reconnect{
 			correlation: handle.Id(),
-		}
+		})
 	}
 
 	return &Error{code: code, err: err}
 }
 
-func (client *grpcClient) getConnectionHandle() (*connectionHandle, error) {
+func (client *grpcClient) send(ctx context.Context, m msg) error {
+	select {
+	case client.channel <- m:
+		return nil
+	case <-client.done:
+		return client.closedError()
+	case <-ctx.Done():
+		return contextError(ctx)
+	}
+}
+
+func (client *grpcClient) getConnectionHandle(ctx context.Context) (*connectionHandle, error) {
 	if client.isClosed() {
-		return nil, &Error{
-			code: ErrorCodeConnectionClosed,
-			err:  fmt.Errorf("connection is closed"),
-		}
+		return nil, client.closedError()
 	}
 
 	msg := newGetConnectionMsg()
-	client.channel <- msg
+	if err := client.send(ctx, msg); err != nil {
+		return nil, err
+	}
 
-	resp := <-msg.channel
-
-	return &resp, resp.err
+	select {
+	case resp := <-msg.channel:
+		return &resp, resp.err
+	case <-client.done:
+		return nil, client.closedError()
+	case <-ctx.Done():
+		return nil, contextError(ctx)
+	}
 }
 
 func (client *grpcClient) close() {
+	client.closeWith(nil)
+}
+
+func (client *grpcClient) closeWith(err error) {
 	client.once.Do(func() {
-		atomic.StoreInt32(client.closeFlag, 1)
-		close(client.channel)
+		client.closeErr = err
+		close(client.done)
 	})
 }
 
 func (client *grpcClient) isClosed() bool {
-	return atomic.LoadInt32(client.closeFlag) != 0
+	select {
+	case <-client.done:
+		return true
+	default:
+		return false
+	}
 }
 
 type getConnection struct {
@@ -132,7 +168,7 @@ func (msg getConnection) isMsg() {}
 
 func newGetConnectionMsg() getConnection {
 	return getConnection{
-		channel: make(chan connectionHandle),
+		channel: make(chan connectionHandle, 1),
 	}
 }
 
@@ -211,13 +247,16 @@ func newConnectionHandle(id uuid.UUID, serverInfo *serverInfo, connection *grpc.
 	}
 }
 
-func connectionStateMachine(config Configuration, closeFlag *int32, channel chan msg, logger *logger) {
+func connectionStateMachine(config Configuration, client *grpcClient) {
 	state := newConnectionState(config)
+	logger := client.logger
 
 	for {
-		msg, ok := <-channel
+		var msg msg
 
-		if !ok {
+		select {
+		case msg = <-client.channel:
+		case <-client.done:
 			if state.connection != nil {
 				err := state.connection.Close()
 
@@ -237,11 +276,11 @@ func connectionStateMachine(config Configuration, closeFlag *int32, channel chan
 					conn, serverInfo, err := discoverNode(state.config, logger)
 
 					if err != nil {
-						atomic.StoreInt32(closeFlag, 1)
 						state.lastError = err
 						resp := newErroredConnectionHandle(err)
 						evt.channel <- resp
 						close(evt.channel)
+						client.closeWith(err)
 						return
 					}
 

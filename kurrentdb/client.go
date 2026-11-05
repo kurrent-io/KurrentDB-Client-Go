@@ -54,7 +54,7 @@ func (client *Client) AppendToStream(
 	events ...EventData,
 ) (*WriteResult, error) {
 	opts.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func (client *Client) MultiStreamAppend(
 		}
 	}
 
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +326,7 @@ func (client *Client) AppendRecords(
 		}
 	}
 
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +501,7 @@ func (client *Client) DeleteStream(
 	opts DeleteStreamOptions,
 ) (*DeleteResult, error) {
 	opts.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(parent)
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +531,7 @@ func (client *Client) TombstoneStream(
 	opts TombstoneStreamOptions,
 ) (*DeleteResult, error) {
 	opts.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(parent)
 	if err != nil {
 		return nil, err
 	}
@@ -560,7 +560,7 @@ func (client *Client) ReadStream(
 ) (*ReadStream, error) {
 	opts.setDefaults()
 	readRequest := toReadStreamRequest(streamID, opts.Direction, opts.From, count, opts.ResolveLinkTos)
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return nil, err
 	}
@@ -576,7 +576,7 @@ func (client *Client) ReadAll(
 	count uint64,
 ) (*ReadStream, error) {
 	opts.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(context)
 	if err != nil {
 		return nil, err
 	}
@@ -595,7 +595,7 @@ func (client *Client) SubscribeToStream(
 	opts SubscribeToStreamOptions,
 ) (*Subscription, error) {
 	opts.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(parent)
 	if err != nil {
 		return nil, err
 	}
@@ -640,7 +640,7 @@ func (client *Client) SubscribeToAll(
 	opts SubscribeToAllOptions,
 ) (*Subscription, error) {
 	opts.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(parent)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +693,7 @@ func (client *Client) SubscribeToPersistentSubscription(
 	options SubscribeToPersistentSubscriptionOptions,
 ) (*PersistentSubscription, error) {
 	options.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -718,7 +718,7 @@ func (client *Client) SubscribeToPersistentSubscriptionToAll(
 	options SubscribeToPersistentSubscriptionOptions,
 ) (*PersistentSubscription, error) {
 	options.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -751,7 +751,7 @@ func (client *Client) CreatePersistentSubscription(
 	options PersistentStreamSubscriptionOptions,
 ) error {
 	options.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return err
 	}
@@ -776,7 +776,7 @@ func (client *Client) CreatePersistentSubscriptionToAll(
 	options PersistentAllSubscriptionOptions,
 ) error {
 	options.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return err
 	}
@@ -818,7 +818,7 @@ func (client *Client) UpdatePersistentSubscription(
 	options PersistentStreamSubscriptionOptions,
 ) error {
 	options.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return err
 	}
@@ -839,7 +839,7 @@ func (client *Client) UpdatePersistentSubscriptionToAll(
 	options PersistentAllSubscriptionOptions,
 ) error {
 	options.setDefaults()
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return err
 	}
@@ -860,7 +860,7 @@ func (client *Client) DeletePersistentSubscription(
 	groupName string,
 	options DeletePersistentSubscriptionOptions,
 ) error {
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return err
 	}
@@ -875,7 +875,7 @@ func (client *Client) DeletePersistentSubscriptionToAll(
 	groupName string,
 	options DeletePersistentSubscriptionOptions,
 ) error {
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return err
 	}
@@ -900,7 +900,7 @@ func (client *Client) ReplayParkedMessagesToAll(ctx context.Context, groupName s
 }
 
 func (client *Client) replayParkedMessages(ctx context.Context, streamName string, groupName string, options ReplayParkedMessagesOptions) error {
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return err
 	}
@@ -939,7 +939,7 @@ func (client *Client) ListPersistentSubscriptionsToAll(ctx context.Context, opti
 }
 
 func (client *Client) listPersistentSubscriptionsInternal(ctx context.Context, streamName *string, options ListPersistentSubscriptionsOptions) ([]PersistentSubscriptionInfo, error) {
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -971,7 +971,7 @@ func (client *Client) GetPersistentSubscriptionInfoToAll(ctx context.Context, gr
 }
 
 func (client *Client) getPersistentSubscriptionInfoInternal(ctx context.Context, streamName *string, groupName string, options GetPersistentSubscriptionOptions) (*PersistentSubscriptionInfo, error) {
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -996,7 +996,7 @@ func (client *Client) getPersistentSubscriptionInfoInternal(ctx context.Context,
 
 // RestartPersistentSubscriptionSubsystem Restarts the persistent subscription subsystem on the server.
 func (client *Client) RestartPersistentSubscriptionSubsystem(ctx context.Context, options RestartPersistentSubscriptionSubsystemOptions) error {
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 	if err != nil {
 		return err
 	}
@@ -1041,7 +1041,7 @@ func readInternal(
 }
 
 func (client *Client) Gossip(ctx context.Context) ([]*gossip.MemberInfo, error) {
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(ctx)
 
 	if err != nil {
 		return nil, err
