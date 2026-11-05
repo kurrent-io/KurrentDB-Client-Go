@@ -1,5 +1,7 @@
 package kurrentdb
 
+import "context"
+
 // ServerVersion Represents the version of a KurrentDB node.
 type ServerVersion struct {
 	Major int
@@ -9,7 +11,7 @@ type ServerVersion struct {
 
 // GetServerVersion Returns the version of the KurrentDB node to which the client is currently connected.
 func (client *Client) GetServerVersion() (*ServerVersion, error) {
-	handle, err := client.grpcClient.getConnectionHandle()
+	handle, err := client.grpcClient.getConnectionHandle(context.Background())
 	if err != nil {
 		return nil, err
 	}

@@ -59,8 +59,10 @@ jobs:
           username: ${{ secrets.CLOUDSMITH_CICD_USER }}
           password: ${{ secrets.CLOUDSMITH_CICD_TOKEN }}
 
-      - name: Misc tests
-        run: go test --count=1 -v ./kurrentdb -run TestMisc
+      - name: Unit tests
+        run: |
+          go test --count=1 -v ./kurrentdb
+          go test --count=1 -v ./test -run TestMisc
 
       - name: Start KurrentDB
         run: make start-kurrentdb
