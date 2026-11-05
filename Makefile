@@ -33,14 +33,7 @@ endif
 .PHONY: start-kurrentdb
 start-kurrentdb:
 	@docker --version
-	@docker compose up -d
-	@echo "Waiting for containers to be healthy..."
-	@until [ "$$(docker inspect -f '{{.State.Health.Status}}' $$(docker ps -q) | grep -c healthy)" -eq "$$(docker ps -q | wc -l)" ]; do \
-		printf "."; \
-		sleep 2; \
-	done; \
-	echo ""; \
-	echo "✅ All containers are healthy!"
+	@docker compose up -d --wait
 	@docker compose ps
 
 .PHONY: stop-kurrentdb
