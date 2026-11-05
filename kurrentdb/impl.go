@@ -34,13 +34,14 @@ type grpcClient struct {
 }
 
 func (client *grpcClient) closedError() error {
-	if client.closeErr != nil {
-		return client.closeErr
+	err := client.closeErr
+	if err == nil {
+		err = fmt.Errorf("connection is closed")
 	}
 
 	return &Error{
 		code: ErrorCodeConnectionClosed,
-		err:  fmt.Errorf("connection is closed"),
+		err:  err,
 	}
 }
 
