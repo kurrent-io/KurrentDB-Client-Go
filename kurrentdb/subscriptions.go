@@ -2,7 +2,9 @@ package kurrentdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"sync/atomic"
 
@@ -12,6 +14,7 @@ import (
 // Subscription is a subscription's handle.
 type Subscription struct {
 	client *Client
+	handle *connectionHandle
 	id     string
 	inner  api.Streams_ReadClient
 	cancel context.CancelFunc
@@ -19,7 +22,7 @@ type Subscription struct {
 	closed *int32
 }
 
-func newSubscription(client *Client, cancel context.CancelFunc, inner api.Streams_ReadClient, id string) *Subscription {
+func newSubscription(client *Client, handle *connectionHandle, cancel context.CancelFunc, inner api.Streams_ReadClient, id string) *Subscription {
 	once := new(sync.Once)
 	closed := new(int32)
 
@@ -27,6 +30,7 @@ func newSubscription(client *Client, cancel context.CancelFunc, inner api.Stream
 
 	return &Subscription{
 		client: client,
+		handle: handle,
 		id:     id,
 		inner:  inner,
 		once:   once,
@@ -64,6 +68,14 @@ func (sub *Subscription) Recv() *SubscriptionEvent {
 		result, err := sub.inner.Recv()
 		if err != nil {
 			sub.client.grpcClient.logger.error("subscription has dropped. Reason: %v", err)
+
+			// Let the client react to the failure, e.g. reconnect to the leader
+			// on a not-leader error, as it does for every other call.
+			// Otherwise a requires-leader subscription made on a follower
+			// keeps failing on that follower.
+			if !errors.Is(err, io.EOF) {
+				err = sub.client.grpcClient.handleError(sub.handle, sub.inner.Trailer(), err)
+			}
 
 			dropped := SubscriptionDropped{
 				Error: err,

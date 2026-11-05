@@ -624,7 +624,7 @@ func (client *Client) SubscribeToStream(
 	case *api.ReadResp_Confirmation:
 		{
 			confirmation := readResult.GetConfirmation()
-			return newSubscription(client, cancel, readClient, confirmation.SubscriptionId), nil
+			return newSubscription(client, handle, cancel, readClient, confirmation.SubscriptionId), nil
 		}
 	}
 	defer cancel()
@@ -678,7 +678,7 @@ func (client *Client) SubscribeToAll(
 	case *api.ReadResp_Confirmation:
 		{
 			confirmation := readResult.GetConfirmation()
-			return newSubscription(client, cancel, readClient, confirmation.SubscriptionId), nil
+			return newSubscription(client, handle, cancel, readClient, confirmation.SubscriptionId), nil
 		}
 	}
 	defer cancel()
